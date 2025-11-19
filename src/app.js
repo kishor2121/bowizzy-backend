@@ -15,14 +15,15 @@ const authRouter = require("./routes/auth");
 // const usersRouter = require("./routes/users");
 const personalDetailsRouter = require("./routes/personalDetails");
 const educationRouter = require("./routes/education");
+const workExperienceRouter = require("./routes/workExperience");
 
 // 3. Use routes under specific paths
 app.use("/auth", authRouter);
 // app.use("/users", usersRouter);
 app.use("/", personalDetailsRouter);
 app.use("/", educationRouter);
+app.use("/", workExperienceRouter);
 
-// Default route
 app.get("/", (req, res) => {
   res.send("Node backend is working!");
 });
