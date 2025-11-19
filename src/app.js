@@ -16,6 +16,7 @@ const authRouter = require("./routes/auth");
 const personalDetailsRouter = require("./routes/personalDetails");
 const educationRouter = require("./routes/education");
 const workExperienceRouter = require("./routes/workExperience");
+const projectRouter = require("./routes/projects");
 
 // 3. Use routes under specific paths
 app.use("/auth", authRouter);
@@ -23,6 +24,7 @@ app.use("/auth", authRouter);
 app.use("/", personalDetailsRouter);
 app.use("/", educationRouter);
 app.use("/", workExperienceRouter);
+app.use("/", projectRouter);
 
 app.get("/", (req, res) => {
   res.send("Node backend is working!");
