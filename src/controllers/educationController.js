@@ -1,6 +1,5 @@
 const db = require("../db/knex");
 
-// CREATE (supports single or multiple)
 exports.create = async (req, res) => {
   try {
     const user_id = req.params.user_id;
@@ -30,7 +29,6 @@ exports.create = async (req, res) => {
   }
 };
 
-// GET one
 exports.getById = async (req, res) => {
   try {
     const { user_id, id } = req.params;
@@ -51,7 +49,6 @@ exports.getById = async (req, res) => {
   }
 };
 
-// GET all
 exports.getByUser = async (req, res) => {
   try {
     const { user_id } = req.params;
@@ -68,7 +65,6 @@ exports.getByUser = async (req, res) => {
   }
 };
 
-// UPDATE
 exports.update = async (req, res) => {
   try {
     const { user_id, id } = req.params;
@@ -90,7 +86,6 @@ exports.update = async (req, res) => {
   }
 };
 
-// DELETE
 exports.remove = async (req, res) => {
   try {
     const { user_id, id } = req.params;
