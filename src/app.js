@@ -3,6 +3,9 @@ require("dotenv").config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const cors = require("cors");
+app.use(cors());
+
 // 1. Allow JSON in requests
 app.use(express.json());
 
@@ -20,6 +23,7 @@ const projectRouter = require("./routes/projects");
 const skillsRouter = require("./routes/skills");
 const linksRouter = require("./routes/links");
 const certificatesRouter = require("./routes/certificates");
+const resumeTemplatesRouter = require("./routes/resumeTemplates");
 
 // 3. Use routes under specific paths
 app.use("/auth", authRouter);
@@ -31,6 +35,7 @@ app.use("/", projectRouter);
 app.use("/", skillsRouter);
 app.use("/", linksRouter);
 app.use("/", certificatesRouter);
+app.use("/", resumeTemplatesRouter);
 
 app.get("/", (req, res) => {
   res.send("Node backend is working!");
