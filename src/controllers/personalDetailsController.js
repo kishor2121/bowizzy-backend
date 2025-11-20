@@ -1,7 +1,6 @@
 const db = require("../db/knex");
 const { uploadImageToCloudinary, deleteImageFromCloudinary } = require("../utils/uploadImage");
 
-// CREATE PERSONAL DETAILS
 exports.create = async (req, res) => {
   try {
     const user_id = req.params.user_id;
@@ -25,12 +24,17 @@ exports.create = async (req, res) => {
     return res.status(201).json(record);
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Error creating personal details" });
+    if (err.code === "23505") {
+      return res.status(400).json({
+        message: "Personal details already exist for this user. Please update instead."
+      });
+    }
+
+    console.error("Error creating personal details:", err);
+    return res.status(500).json({ message: "Error creating personal details" });
   }
 };
 
-// GET personal details (by user_id + personal_id)
 exports.getById = async (req, res) => {
   try {
     const { user_id, id } = req.params;
@@ -48,7 +52,6 @@ exports.getById = async (req, res) => {
   }
 };
 
-// UPDATE personal details
 exports.update = async (req, res) => {
   try {
     const { user_id, id } = req.params;
@@ -92,7 +95,6 @@ exports.update = async (req, res) => {
   }
 };
 
-// GET ALL PERSONAL DETAILS
 exports.getAll = async (req, res) => {
   try {
     const list = await db("personal_details").select("*");
@@ -102,7 +104,6 @@ exports.getAll = async (req, res) => {
   }
 };
 
-// DELETE (optional)
 exports.remove = async (req, res) => {
   try {
     const { user_id, id } = req.params;
