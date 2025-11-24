@@ -12,12 +12,12 @@ exports.up = function(knex) {
 
 exports.down = function(knex) {
   return knex.schema.alterTable('users', function (table){
-    table.dropColumns("first_name");
-    table.dropColumns("middle_name");
-    table.dropColumns("last_name");
-    table.dropColumns("phone_number");
-    table.dropColumns("linkedin_url");
-    table.dropColumns("gender");
+    table.dropColumn("first_name");
+    table.dropColumn("middle_name");
+    table.dropColumn("last_name");
+    table.dropColumn("phone_number");
+    table.dropColumn("linkedin_url");
+    table.dropColumn("gender");
   });
 };
 
