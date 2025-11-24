@@ -6,7 +6,7 @@ const admin = require("../firebase");
 // SIGNUP
 exports.signup = async (req, res) => {
   try {
-    const { email, password, user_type } = req.body;
+    const { email, password, user_type, first_name, middle_name, last_name, phone_number, linkedin_url, gender } = req.body;
 
     const exists = await db("users").where({ email }).first();
     if (exists) return res.status(400).json({ message: "Email already exists" });
@@ -18,6 +18,12 @@ exports.signup = async (req, res) => {
         email,
         password_hash,
         user_type,
+        first_name, 
+        middle_name, 
+        last_name, 
+        phone_number, 
+        linkedin_url, 
+        gender
       })
       .returning("*");
 
