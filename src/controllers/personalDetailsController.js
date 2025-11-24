@@ -12,10 +12,10 @@ exports.create = async (req, res) => {
       try { data.languages_known = JSON.parse(data.languages_known); } catch {}
     }
 
-    if (req.file) {
-      const url = await uploadImageToCloudinary(req.file.buffer, "profile_photos");
-      data.profile_photo_url = url;
-    }
+    // if (req.file) {
+    //   const url = await uploadImageToCloudinary(req.file.buffer, "profile_photos");
+    //   data.profile_photo_url = url;
+    // }
 
     const [record] = await db("personal_details")
       .insert(data)
