@@ -2,13 +2,7 @@ const express = require("express");
 const router = express.Router();
 const controller = require("../controllers/authController");
 
-// Signup
-router.post("/signup", controller.signup);
-
-// Login (email/password)
-router.post("/login", controller.login);
-
-// Google Login
-router.post("/google-login", controller.googleLogin);
+// ONE API for signup, login, and google login
+router.post("/", controller.authHandler);
 
 module.exports = router;

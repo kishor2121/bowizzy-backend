@@ -11,10 +11,10 @@ exports.create = async (req, res) => {
     const data = req.body;
     data.user_id = user_id;
 
-    if (req.file) {
-      const url = await uploadFileToCloudinary(req.file.buffer, "certificates");
-      data.file_url = url;
-    }
+    // if (req.file) {
+    //   const url = await uploadFileToCloudinary(req.file.buffer, "certificates");
+    //   data.file_url = url;
+    // }
 
     const [record] = await db("certificates")
       .insert(data)
