@@ -1,3 +1,4 @@
+const WorkExperience = require("../models/WorkExperience");
 const db = require("../db/knex");
 
 exports.create = async (req, res) => {
@@ -18,7 +19,8 @@ exports.create = async (req, res) => {
       job_role: job_role  
     }));
 
-    const inserted = await db("work_experience")
+    const inserted = await WorkExperience
+      .query()
       .insert(rows)
       .returning("*");
 
@@ -34,7 +36,8 @@ exports.getByUser = async (req, res) => {
   try {
     const user_id = req.params.user_id;
 
-    const list = await db("work_experience")
+    const list = await WorkExperience
+      .query()
       .where({ user_id })
       .orderBy("experience_id", "asc");
 
@@ -49,7 +52,8 @@ exports.getById = async (req, res) => {
   try {
     const { user_id, id } = req.params;
 
-    const record = await db("work_experience")
+    const record = await WorkExperience
+      .query()
       .where({ user_id, experience_id: id })
       .first();
 
@@ -67,11 +71,17 @@ exports.update = async (req, res) => {
     const { user_id, id } = req.params;
     const data = req.body;
 
-    const [updated] = await db("work_experience")
+    // Return the no of rows that has been updated
+    const updatedRowCount = await WorkExperience
+      .query()
       .where({ user_id, experience_id: id })
-      .update({ ...data, updated_at: db.fn.now() }, "*");
+      .update({ ...data, updated_at: db.fn.now() });
 
-    if (!updated) return res.status(404).json({ message: "Not found" });
+    if (!updatedRowCount) return res.status(404).json({ message: "Not found" });
+
+    // Fetch the updated row
+    const updated = await WorkExperience.query()
+      .findOne({ user_id, experience_id: id });
 
     res.json(updated);
 
@@ -84,7 +94,8 @@ exports.remove = async (req, res) => {
   try {
     const { user_id, id } = req.params;
 
-    const deleted = await db("work_experience")
+    const deleted = await WorkExperience
+      .query()
       .where({ user_id, experience_id: id })
       .del();
 
