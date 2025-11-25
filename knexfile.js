@@ -1,4 +1,4 @@
-require('dotenv').config();
+require("dotenv").config();
 
 module.exports = {
   development: {
@@ -8,6 +8,18 @@ module.exports = {
       user: process.env.DB_USER,
       password: process.env.DB_PASS,
       database: process.env.DB_NAME,
+      ssl: { rejectUnauthorized: false },
+    },
+    migrations: {
+      directory: "./migrations",
+    },
+  },
+
+  production: {
+    client: "pg",
+    connection: {
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false }
     },
     migrations: {
       directory: "./migrations",
