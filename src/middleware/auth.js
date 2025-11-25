@@ -9,7 +9,7 @@ module.exports = (req, res, next) => {
     req.user = decoded;
 
     if (req.params.user_id && String(req.params.user_id) !== String(decoded.user_id)) {
-      return res.status(403).json({ message: "Forbidden: Not your data" });
+      return res.status(403).json({ message: "Forbidden" });
     }
 
     next();
