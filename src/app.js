@@ -25,6 +25,7 @@ const linksRouter = require("./routes/links");
 const certificatesRouter = require("./routes/certificates");
 const resumeTemplatesRouter = require("./routes/resumeTemplates");
 const locationRouter = require("./routes/location");
+const dashboardRouter = require("./routes/dashboard");
 
 // 3. Use routes under specific paths
 app.use("/auth", authRouter);
@@ -38,6 +39,7 @@ app.use("/", linksRouter);
 app.use("/", certificatesRouter);
 app.use("/", resumeTemplatesRouter);
 app.use("/", locationRouter);
+app.use("/", dashboardRouter);
 
 
 app.get("/", (req, res) => {
