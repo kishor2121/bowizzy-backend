@@ -13,6 +13,12 @@ router.post(
 );
 
 router.get(
+  "/users/:user_id/personal-details",
+  auth,
+  controller.getByUser
+);
+
+router.get(
   "/users/:user_id/personal-details/:id",
   auth,
   controller.getById
