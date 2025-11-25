@@ -1,3 +1,4 @@
+const Link = require("../models/Link");
 const db = require("../db/knex");
 
 exports.create = async (req, res) => {
@@ -17,7 +18,7 @@ exports.create = async (req, res) => {
       user_id,
     }));
 
-    const inserted = await db("links").insert(rows).returning("*");
+    const inserted = await Link.query().insert(rows).returning("*");
 
     res.status(201).json(inserted);
 
@@ -31,7 +32,7 @@ exports.getByUser = async (req, res) => {
   try {
     const user_id = req.params.user_id;
 
-    const list = await db("links")
+    const list = await Link.query()
       .where({ user_id })
       .orderBy("link_id", "asc");
 
@@ -46,7 +47,7 @@ exports.getById = async (req, res) => {
   try {
     const { user_id, link_id } = req.params;
 
-    const record = await db("links")
+    const record = await Link.query()
       .where({ user_id, link_id })
       .first();
 
@@ -65,12 +66,17 @@ exports.update = async (req, res) => {
     const { user_id, link_id } = req.params;
     const data = req.body;
 
-    const [updated] = await db("links")
+    // Returns the no of rows that has been updated
+    const updatedRowCount = await Link.query()
       .where({ user_id, link_id })
-      .update({ ...data, updated_at: db.fn.now() }, "*");
+      .update({ ...data, updated_at: db.fn.now() });
 
-    if (!updated)
+    if (!updatedRowCount)
       return res.status(404).json({ message: "Not found" });
+
+    const updated = await Link
+    .query()
+    .findOne({ user_id, link_id });
 
     res.json(updated);
 
@@ -83,7 +89,7 @@ exports.remove = async (req, res) => {
   try {
     const { user_id, link_id } = req.params;
 
-    const deleted = await db("links")
+    const deleted = await Link.query()
       .where({ user_id, link_id })
       .del();
 

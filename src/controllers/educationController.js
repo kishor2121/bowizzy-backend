@@ -1,3 +1,4 @@
+const Education = require("../models/Education");
 const db = require("../db/knex");
 
 exports.create = async (req, res) => {
@@ -10,14 +11,16 @@ exports.create = async (req, res) => {
 
     if (Array.isArray(data)) {
       const payload = data.map(item => ({ ...item, user_id }));
-      const records = await db("education_details")
+      const records = await Education
+        .query()
         .insert(payload)
         .returning("*");
       return res.status(201).json(records);
     }
 
     data.user_id = user_id;
-    const [record] = await db("education_details")
+    const [record] = await Education
+      .query()
       .insert(data)
       .returning("*");
 
@@ -36,7 +39,8 @@ exports.getById = async (req, res) => {
     const userExists = await db("users").where({ user_id }).first();
     if (!userExists) return res.status(404).json({ message: "User not found" });
 
-    const record = await db("education_details")
+    const record = await Education
+      .query()
       .where({ user_id, education_id: id })
       .first();
 
@@ -56,7 +60,7 @@ exports.getByUser = async (req, res) => {
     const userExists = await db("users").where({ user_id }).first();
     if (!userExists) return res.status(404).json({ message: "User not found" });
 
-    const list = await db("education_details").where({ user_id });
+    const list = await Education.query().where({ user_id });
 
     res.json(list);
 
@@ -73,11 +77,17 @@ exports.update = async (req, res) => {
     const userExists = await db("users").where({ user_id }).first();
     if (!userExists) return res.status(404).json({ message: "User not found" });
 
-    const [updated] = await db("education_details")
+    // Returns the no of rows that has been updated
+    const updatedRowCount = await Education
+      .query()
       .where({ user_id, education_id: id })
-      .update({ ...data, updated_at: db.fn.now() }, "*");
+      .update({ ...data, updated_at: db.fn.now() });
 
-    if (!updated) return res.status(404).json({ message: "Not found" });
+    if (!updatedRowCount) return res.status(404).json({ message: "Not found" });
+
+    const updated = await Education
+    .query()
+    .findOne({ user_id, education_id: id });
 
     res.json(updated);
 
@@ -93,7 +103,8 @@ exports.remove = async (req, res) => {
     const userExists = await db("users").where({ user_id }).first();
     if (!userExists) return res.status(404).json({ message: "User not found" });
 
-    const deleted = await db("education_details")
+    const deleted = await Education
+      .query()
       .where({ user_id, education_id: id })
       .del();
 

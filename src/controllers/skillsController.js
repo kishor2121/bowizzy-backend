@@ -1,3 +1,4 @@
+const Skill = require("../models/Skill");
 const db = require("../db/knex");
 
 exports.create = async (req, res) => {
@@ -17,7 +18,7 @@ exports.create = async (req, res) => {
       user_id,
     }));
 
-    const inserted = await db("skills").insert(rows).returning("*");
+    const inserted = await Skill.query().insert(rows).returning("*");
 
     res.status(201).json(inserted);
 
@@ -31,7 +32,7 @@ exports.getByUser = async (req, res) => {
   try {
     const user_id = req.params.user_id;
 
-    const list = await db("skills")
+    const list = await Skill.query()
       .where({ user_id })
       .orderBy("skill_id", "asc");
 
@@ -46,7 +47,7 @@ exports.getById = async (req, res) => {
   try {
     const { user_id, skill_id } = req.params;
 
-    const record = await db("skills")
+    const record = await Skill.query()
       .where({ user_id, skill_id })
       .first();
 
@@ -65,12 +66,17 @@ exports.update = async (req, res) => {
     const { user_id, skill_id } = req.params;
     const data = req.body;
 
-    const [updated] = await db("skills")
+    // Return the no of rows that has been updated
+    const updatedRowCount = await Skill.query()
       .where({ user_id, skill_id })
-      .update({ ...data, updated_at: db.fn.now() }, "*");
+      .update({ ...data, updated_at: db.fn.now() });
 
-    if (!updated)
+    if (!updatedRowCount)
       return res.status(404).json({ message: "Not found" });
+
+    // Fetch the updated row
+    const updated = await Skill.query()
+      .findOne({ user_id, skill_id });
 
     res.json(updated);
 
@@ -83,7 +89,7 @@ exports.remove = async (req, res) => {
   try {
     const { user_id, skill_id } = req.params;
 
-    const deleted = await db("skills")
+    const deleted = await Skill.query()
       .where({ user_id, skill_id })
       .del();
 
