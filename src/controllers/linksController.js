@@ -1,24 +1,25 @@
 const Link = require("../models/Link");
+const User = require("../models/User");
 const db = require("../db/knex");
 
 exports.create = async (req, res) => {
   try {
-    const user_id = req.params.user_id;
+    const { user_id } = req.params;
     const { links } = req.body;
 
-    const userExists = await db("users").where({ user_id }).first();
+    const userExists = await User.query().findById(user_id);
     if (!userExists)
       return res.status(404).json({ message: "User not found" });
 
     if (!Array.isArray(links))
       return res.status(400).json({ message: "links must be an array" });
 
-    const rows = links.map((l) => ({
+    const rows = links.map(l => ({
       ...l,
-      user_id,
+      user_id
     }));
 
-    const inserted = await Link.query().insert(rows).returning("*");
+    const inserted = await Link.query().insert(rows);
 
     res.status(201).json(inserted);
 
@@ -30,9 +31,14 @@ exports.create = async (req, res) => {
 
 exports.getByUser = async (req, res) => {
   try {
-    const user_id = req.params.user_id;
+    const { user_id } = req.params;
 
-    const list = await Link.query()
+    const userExists = await User.query().findById(user_id);
+    if (!userExists)
+      return res.status(404).json({ message: "User not found" });
+
+    const list = await Link
+      .query()
       .where({ user_id })
       .orderBy("link_id", "asc");
 
@@ -47,9 +53,13 @@ exports.getById = async (req, res) => {
   try {
     const { user_id, link_id } = req.params;
 
-    const record = await Link.query()
-      .where({ user_id, link_id })
-      .first();
+    const userExists = await User.query().findById(user_id);
+    if (!userExists)
+      return res.status(404).json({ message: "User not found" });
+
+    const record = await Link
+      .query()
+      .findOne({ user_id, link_id });
 
     if (!record)
       return res.status(404).json({ message: "Not found" });
@@ -66,17 +76,21 @@ exports.update = async (req, res) => {
     const { user_id, link_id } = req.params;
     const data = req.body;
 
-    // Returns the no of rows that has been updated
-    const updatedRowCount = await Link.query()
-      .where({ user_id, link_id })
-      .update({ ...data, updated_at: db.fn.now() });
+    const userExists = await User.query().findById(user_id);
+    if (!userExists)
+      return res.status(404).json({ message: "User not found" });
 
-    if (!updatedRowCount)
+    const updatedRowCount = await Link
+      .query()
+      .patch(data)
+      .where({ user_id, link_id });
+
+    if (updatedRowCount === 0)
       return res.status(404).json({ message: "Not found" });
 
     const updated = await Link
-    .query()
-    .findOne({ user_id, link_id });
+      .query()
+      .findOne({ user_id, link_id });
 
     res.json(updated);
 
@@ -89,9 +103,14 @@ exports.remove = async (req, res) => {
   try {
     const { user_id, link_id } = req.params;
 
-    const deleted = await Link.query()
-      .where({ user_id, link_id })
-      .del();
+    const userExists = await User.query().findById(user_id);
+    if (!userExists)
+      return res.status(404).json({ message: "User not found" });
+
+    const deleted = await Link
+      .query()
+      .delete()
+      .where({ user_id, link_id });
 
     if (!deleted)
       return res.status(404).json({ message: "Not found" });
