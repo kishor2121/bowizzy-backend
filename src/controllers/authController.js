@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const PersonalDetails = require("../models/PersonalDetails");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const admin = require("../firebase");
@@ -8,10 +9,11 @@ exports.authHandler = async (req, res) => {
     const { type } = req.body;
 
     if (type === "signup") {
-      const { email, password, user_type } = req.body;
+      const { email, password, user_type, first_name, last_name, phone_number, gender } = req.body;
 
       const exists = await User.query().findOne({ email });
-      if (exists) return res.status(400).json({ message: "Email already exists" });
+      if (exists)
+        return res.status(400).json({ message: "Email already exists" });
 
       const password_hash = await bcrypt.hash(password, 10);
 
@@ -19,6 +21,19 @@ exports.authHandler = async (req, res) => {
         email,
         password_hash,
         user_type: user_type || "regular",
+        first_name,
+        last_name,
+        phone_number,
+        gender
+      });
+
+      await PersonalDetails.query().insert({
+        user_id: user.user_id,
+        first_name: first_name || "",
+        last_name: last_name || "",
+        email: email,
+        mobile_number: phone_number || "",
+        gender: gender || ""
       });
 
       return res.status(201).json({
@@ -32,10 +47,12 @@ exports.authHandler = async (req, res) => {
       const { email, password } = req.body;
 
       const user = await User.query().findOne({ email });
-      if (!user) return res.status(401).json({ message: "Invalid credentials" });
+      if (!user)
+        return res.status(401).json({ message: "Invalid credentials" });
 
       const match = await bcrypt.compare(password, user.password_hash);
-      if (!match) return res.status(401).json({ message: "Invalid credentials" });
+      if (!match)
+        return res.status(401).json({ message: "Invalid credentials" });
 
       const token = jwt.sign(
         { user_id: user.user_id, user_type: user.user_type },
@@ -53,10 +70,8 @@ exports.authHandler = async (req, res) => {
 
     if (type === "google") {
       const { idToken } = req.body;
-
-      if (!idToken) {
+      if (!idToken)
         return res.status(400).json({ message: "idToken required" });
-      }
 
       const decoded = await admin.auth().verifyIdToken(idToken);
       const email = decoded.email;
@@ -67,7 +82,12 @@ exports.authHandler = async (req, res) => {
         user = await User.query().insert({
           email,
           password_hash: "",
-          user_type: "regular",
+          user_type: "regular"
+        });
+
+        await PersonalDetails.query().insert({
+          user_id: user.user_id,
+          email
         });
       }
 
@@ -84,7 +104,6 @@ exports.authHandler = async (req, res) => {
         token
       });
     }
-
     return res.status(400).json({
       message: "Invalid type. Must be one of: signup | login | google",
     });
