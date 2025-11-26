@@ -1,24 +1,25 @@
 const Skill = require("../models/Skill");
+const User = require("../models/User");
 const db = require("../db/knex");
 
 exports.create = async (req, res) => {
   try {
-    const user_id = req.params.user_id;
+    const { user_id } = req.params;
     const { skills } = req.body;
 
-    const userExists = await db("users").where({ user_id }).first();
+    const userExists = await User.query().findById(user_id);
     if (!userExists)
       return res.status(404).json({ message: "User not found" });
 
     if (!Array.isArray(skills))
       return res.status(400).json({ message: "skills must be an array" });
 
-    const rows = skills.map((s) => ({
+    const rows = skills.map(s => ({
       ...s,
-      user_id,
+      user_id
     }));
 
-    const inserted = await Skill.query().insert(rows).returning("*");
+    const inserted = await Skill.query().insert(rows);
 
     res.status(201).json(inserted);
 
@@ -28,11 +29,17 @@ exports.create = async (req, res) => {
   }
 };
 
+
 exports.getByUser = async (req, res) => {
   try {
-    const user_id = req.params.user_id;
+    const { user_id } = req.params;
 
-    const list = await Skill.query()
+    const userExists = await User.query().findById(user_id);
+    if (!userExists)
+      return res.status(404).json({ message: "User not found" });
+
+    const list = await Skill
+      .query()
       .where({ user_id })
       .orderBy("skill_id", "asc");
 
@@ -47,9 +54,13 @@ exports.getById = async (req, res) => {
   try {
     const { user_id, skill_id } = req.params;
 
-    const record = await Skill.query()
-      .where({ user_id, skill_id })
-      .first();
+    const userExists = await User.query().findById(user_id);
+    if (!userExists)
+      return res.status(404).json({ message: "User not found" });
+
+    const record = await Skill
+      .query()
+      .findOne({ user_id, skill_id });
 
     if (!record)
       return res.status(404).json({ message: "Not found" });
@@ -66,16 +77,20 @@ exports.update = async (req, res) => {
     const { user_id, skill_id } = req.params;
     const data = req.body;
 
-    // Return the no of rows that has been updated
-    const updatedRowCount = await Skill.query()
-      .where({ user_id, skill_id })
-      .update({ ...data, updated_at: db.fn.now() });
+    const userExists = await User.query().findById(user_id);
+    if (!userExists)
+      return res.status(404).json({ message: "User not found" });
 
-    if (!updatedRowCount)
+    const updatedRowCount = await Skill
+      .query()
+      .patch(data)
+      .where({ user_id, skill_id });
+
+    if (updatedRowCount === 0)
       return res.status(404).json({ message: "Not found" });
 
-    // Fetch the updated row
-    const updated = await Skill.query()
+    const updated = await Skill
+      .query()
       .findOne({ user_id, skill_id });
 
     res.json(updated);
@@ -85,13 +100,19 @@ exports.update = async (req, res) => {
   }
 };
 
+
 exports.remove = async (req, res) => {
   try {
     const { user_id, skill_id } = req.params;
 
-    const deleted = await Skill.query()
-      .where({ user_id, skill_id })
-      .del();
+    const userExists = await User.query().findById(user_id);
+    if (!userExists)
+      return res.status(404).json({ message: "User not found" });
+
+    const deleted = await Skill
+      .query()
+      .delete()
+      .where({ user_id, skill_id });
 
     if (!deleted)
       return res.status(404).json({ message: "Not found" });
