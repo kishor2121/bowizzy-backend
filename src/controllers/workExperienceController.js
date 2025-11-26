@@ -1,28 +1,28 @@
+const WorkExperience = require("../models/WorkExperience");
+const User = require("../models/User");
 const db = require("../db/knex");
 
 exports.create = async (req, res) => {
   try {
-    const user_id = req.params.user_id;
+    const { user_id } = req.params;
     const { job_role, experiences } = req.body;
 
-    const userExists = await db("users").where({ user_id }).first();
+    const userExists = await User.query().findById(user_id);
     if (!userExists) return res.status(404).json({ message: "User not found" });
 
     if (!Array.isArray(experiences)) {
       return res.status(400).json({ message: "experiences must be an array" });
     }
 
-    const rows = experiences.map((exp) => ({
+    const payload = experiences.map(exp => ({
       ...exp,
       user_id,
-      job_role: job_role  
+      job_role
     }));
 
-    const inserted = await db("work_experience")
-      .insert(rows)
-      .returning("*");
+    const records = await WorkExperience.query().insert(payload);
 
-    res.status(201).json(inserted);
+    res.status(201).json(records);
 
   } catch (err) {
     console.error(err);
@@ -32,9 +32,13 @@ exports.create = async (req, res) => {
 
 exports.getByUser = async (req, res) => {
   try {
-    const user_id = req.params.user_id;
+    const { user_id } = req.params;
 
-    const list = await db("work_experience")
+    const userExists = await User.query().findById(user_id);
+    if (!userExists) return res.status(404).json({ message: "User not found" });
+
+    const list = await WorkExperience
+      .query()
       .where({ user_id })
       .orderBy("experience_id", "asc");
 
@@ -49,9 +53,15 @@ exports.getById = async (req, res) => {
   try {
     const { user_id, id } = req.params;
 
-    const record = await db("work_experience")
-      .where({ user_id, experience_id: id })
-      .first();
+    const userExists = await User.query().findById(user_id);
+    if (!userExists) return res.status(404).json({ message: "User not found" });
+
+    const record = await WorkExperience
+      .query()
+      .findOne({
+        user_id,
+        experience_id: id
+      });
 
     if (!record) return res.status(404).json({ message: "Not found" });
 
@@ -67,11 +77,27 @@ exports.update = async (req, res) => {
     const { user_id, id } = req.params;
     const data = req.body;
 
-    const [updated] = await db("work_experience")
-      .where({ user_id, experience_id: id })
-      .update({ ...data, updated_at: db.fn.now() }, "*");
+    const userExists = await User.query().findById(user_id);
+    if (!userExists) return res.status(404).json({ message: "User not found" });
 
-    if (!updated) return res.status(404).json({ message: "Not found" });
+    const updatedRowCount = await WorkExperience
+      .query()
+      .patch(data)
+      .where({
+        user_id,
+        experience_id: id
+      });
+
+    if (updatedRowCount === 0) {
+      return res.status(404).json({ message: "Not found" });
+    }
+
+    const updated = await WorkExperience
+      .query()
+      .findOne({
+        user_id,
+        experience_id: id
+      });
 
     res.json(updated);
 
@@ -84,9 +110,16 @@ exports.remove = async (req, res) => {
   try {
     const { user_id, id } = req.params;
 
-    const deleted = await db("work_experience")
-      .where({ user_id, experience_id: id })
-      .del();
+    const userExists = await User.query().findById(user_id);
+    if (!userExists) return res.status(404).json({ message: "User not found" });
+
+    const deleted = await WorkExperience
+      .query()
+      .delete()
+      .where({
+        user_id,
+        experience_id: id
+      });
 
     if (!deleted) return res.status(404).json({ message: "Not found" });
 
