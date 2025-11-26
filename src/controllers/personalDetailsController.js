@@ -10,6 +10,14 @@ exports.create = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    const exists = await PersonalDetails.query().findOne({ user_id });
+
+    if (exists) {
+      return res.status(400).json({
+        message: "Personal details already exist. Please use update instead."
+      });
+    }
+
     const data = req.body;
     data.user_id = user_id;
 
