@@ -83,14 +83,17 @@ exports.update = async (req, res) => {
     }
 
     const updated = await PersonalDetails.query()
-      .patchAndFetchById(id)
+      .patchAndFetchById(id, data)  
       .where({ user_id });
 
-    if (!updated) return res.status(404).json({ message: "Not found" });
+    if (!updated) {
+      return res.status(404).json({ message: "Not found" });
+    }
 
     res.json(updated);
 
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Error updating details" });
   }
 };
