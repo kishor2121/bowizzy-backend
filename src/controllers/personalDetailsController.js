@@ -10,6 +10,14 @@ exports.create = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    const exists = await PersonalDetails.query().findOne({ user_id });
+
+    if (exists) {
+      return res.status(400).json({
+        message: "Personal details already exist. Please use update instead."
+      });
+    }
+
     const data = req.body;
     data.user_id = user_id;
 
@@ -76,14 +84,10 @@ exports.update = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const data = { ...req.body };
+    const data = req.body;
 
     if (data.languages_known && typeof data.languages_known === "string") {
-      try {
-        data.languages_known = JSON.parse(data.languages_known);
-      } catch {
-        // ignore parse error, keep original value
-      }
+      try { data.languages_known = JSON.parse(data.languages_known); } catch {}
     }
 
     const updated = await PersonalDetails.query()
@@ -98,7 +102,7 @@ exports.update = async (req, res) => {
 
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ message: "Error updating details" });
+    res.status(500).json({ message: "Error updating details" });
   }
 };
 
@@ -141,4 +145,3 @@ exports.getAll = async (req, res) => {
     res.status(500).json({ message: "Error fetching data" });
   }
 };
-
