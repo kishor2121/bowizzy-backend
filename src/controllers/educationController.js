@@ -89,7 +89,7 @@ exports.update = async (req, res) => {
       .query()
       .findOne({ user_id, education_id: id });
 
-    return res.status(200).json(updated);
+    res.json(updated);
 
   } catch (err) {
     console.error(err);

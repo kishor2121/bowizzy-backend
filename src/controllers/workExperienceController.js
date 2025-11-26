@@ -99,10 +99,10 @@ exports.update = async (req, res) => {
         experience_id: id
       });
 
-    return res.status(200).json(updated);
+    res.json(updated);
 
   } catch (err) {
-    return res.status(500).json({ message: "Error updating work experience" });
+    res.status(500).json({ message: "Error updating work experience" });
   }
 };
 

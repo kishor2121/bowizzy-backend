@@ -20,13 +20,12 @@ exports.create = async (req, res) => {
       return res.status(201).json(inserted);
     }
 
-    if (!Array.isArray(certificates)) {
-      return res.status(400).json({ message: "certificates must be an array" });
-    }
+    const data = req.body;
+    data.user_id = user_id;
 
     const record = await Certificate.query().insert(data);
 
-    return res.status(201).json(records);
+    res.status(201).json(record);
 
   } catch (err) {
     console.error(err);
@@ -82,13 +81,12 @@ exports.update = async (req, res) => {
     const updated = await Certificate.query()
       .findOne({ user_id, certificate_id: id });
 
-    return res.status(200).json(updated);
+    res.json(updated);
 
   } catch (err) {
     res.status(500).json({ message: "Error updating certificate" });
   }
 };
-
 
 exports.remove = async (req, res) => {
   try {

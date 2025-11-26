@@ -91,11 +91,9 @@ exports.update = async (req, res) => {
     res.json(updated);
 
   } catch (err) {
-    console.error("Error updating project:", err);
-    return res.status(500).json({ message: "Error updating project" });
+    res.status(500).json({ message: "Error updating project" });
   }
 };
-
 
 exports.remove = async (req, res) => {
   try {

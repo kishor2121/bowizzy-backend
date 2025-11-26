@@ -93,10 +93,10 @@ exports.update = async (req, res) => {
       .query()
       .findOne({ user_id, skill_id });
 
-    return res.status(200).json(updated);
+    res.json(updated);
 
   } catch (err) {
-    return res.status(500).json({ message: "Error updating skill" });
+    res.status(500).json({ message: "Error updating skill" });
   }
 };
 
