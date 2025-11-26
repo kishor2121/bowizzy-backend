@@ -120,3 +120,22 @@ exports.remove = async (req, res) => {
     res.status(500).json({ message: "Error deleting details" });
   }
 };
+
+exports.getByUser = async (req, res) => {
+  try {
+    const { user_id } = req.params;
+
+    const record = await db("personal_details")
+      .where({ user_id })
+      .first(); 
+
+    if (!record) {
+      return res.status(404).json({ message: "No personal details found" });
+    }
+
+    res.json(record);
+
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching personal details" });
+  }
+};
