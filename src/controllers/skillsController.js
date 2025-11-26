@@ -66,22 +66,22 @@ exports.update = async (req, res) => {
     const { user_id, skill_id } = req.params;
     const data = req.body;
 
-    // Return the no of rows that has been updated
-    const updatedRowCount = await Skill.query()
+    const record = await Skill.query()
       .where({ user_id, skill_id })
-      .update({ ...data, updated_at: db.fn.now() });
+      .first();
 
-    if (!updatedRowCount)
-      return res.status(404).json({ message: "Not found" });
+    if (!record) {
+      return res.status(404).json({ message: "Skill record not found for this user" });
+    }
 
-    // Fetch the updated row
     const updated = await Skill.query()
-      .findOne({ user_id, skill_id });
+      .patchAndFetchById(skill_id, { ...data, updated_at: db.fn.now() });
 
-    res.json(updated);
+    return res.status(200).json(updated);
 
   } catch (err) {
-    res.status(500).json({ message: "Error updating skill" });
+    console.log(err);
+    return res.status(500).json({ message: "Error updating skill" });
   }
 };
 

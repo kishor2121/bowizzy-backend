@@ -59,17 +59,25 @@ exports.update = async (req, res) => {
     const { user_id, id } = req.params;
     const data = req.body;
 
-    const updated = await Project
-      .query()
-      .patchAndFetchById(id, { ...data, user_id });
+    const record = await Project.query()
+      .where({ user_id, project_id: id })
+      .first();
 
-    if (!updated) return res.status(404).json({ message: "Not found" });
+    if (!record) {
+      return res.status(404).json({ message: "Project record not found for this user" });
+    }
 
-    res.json(updated);
+    const updated = await Project.query()
+      .patchAndFetchById(id, { ...data, updated_at: db.fn.now() });
+
+    return res.status(200).json(updated);
+
   } catch (err) {
-    res.status(500).json({ message: "Error updating project" });
+    console.error("Error updating project:", err);
+    return res.status(500).json({ message: "Error updating project" });
   }
 };
+
 
 exports.remove = async (req, res) => {
   try {

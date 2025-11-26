@@ -71,22 +71,21 @@ exports.update = async (req, res) => {
     const { user_id, id } = req.params;
     const data = req.body;
 
-    // Return the no of rows that has been updated
-    const updatedRowCount = await WorkExperience
-      .query()
+    const record = await WorkExperience.query()
       .where({ user_id, experience_id: id })
-      .update({ ...data, updated_at: db.fn.now() });
+      .first();
 
-    if (!updatedRowCount) return res.status(404).json({ message: "Not found" });
+    if (!record) {
+      return res.status(404).json({ message: "Work experience record not found for this user" });
+    }
 
-    // Fetch the updated row
     const updated = await WorkExperience.query()
-      .findOne({ user_id, experience_id: id });
+      .patchAndFetchById(id, { ...data, updated_at: db.fn.now() });
 
-    res.json(updated);
+    return res.status(200).json(updated);
 
   } catch (err) {
-    res.status(500).json({ message: "Error updating work experience" });
+    return res.status(500).json({ message: "Error updating work experience" });
   }
 };
 

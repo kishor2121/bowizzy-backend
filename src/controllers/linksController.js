@@ -66,24 +66,25 @@ exports.update = async (req, res) => {
     const { user_id, link_id } = req.params;
     const data = req.body;
 
-    // Returns the no of rows that has been updated
-    const updatedRowCount = await Link.query()
+    const record = await Link.query()
       .where({ user_id, link_id })
-      .update({ ...data, updated_at: db.fn.now() });
+      .first();
 
-    if (!updatedRowCount)
-      return res.status(404).json({ message: "Not found" });
+    if (!record) {
+      return res.status(404).json({ message: "Link record not found for this user" });
+    }
 
-    const updated = await Link
-    .query()
-    .findOne({ user_id, link_id });
+    const updated = await Link.query()
+      .patchAndFetchById(link_id, { ...data, updated_at: db.fn.now() });
 
-    res.json(updated);
+    return res.status(200).json(updated);
 
   } catch (err) {
-    res.status(500).json({ message: "Error updating link" });
+    console.log(err);
+    return res.status(500).json({ message: "Error updating link" });
   }
 };
+
 
 exports.remove = async (req, res) => {
   try {

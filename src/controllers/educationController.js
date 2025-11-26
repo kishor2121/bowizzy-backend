@@ -74,25 +74,22 @@ exports.update = async (req, res) => {
     const { user_id, id } = req.params;
     const data = req.body;
 
-    const userExists = await db("users").where({ user_id }).first();
-    if (!userExists) return res.status(404).json({ message: "User not found" });
-
-    // Returns the no of rows that has been updated
-    const updatedRowCount = await Education
-      .query()
+    const record = await Education.query()
       .where({ user_id, education_id: id })
-      .update({ ...data, updated_at: db.fn.now() });
+      .first();
 
-    if (!updatedRowCount) return res.status(404).json({ message: "Not found" });
+    if (!record) {
+      return res.status(404).json({ message: "Education record not found for this user" });
+    }
 
-    const updated = await Education
-    .query()
-    .findOne({ user_id, education_id: id });
+    const updated = await Education.query()
+      .patchAndFetchById(id, { ...data, updated_at: db.fn.now() });
 
-    res.json(updated);
+    return res.status(200).json(updated);
 
   } catch (err) {
-    res.status(500).json({ message: "Error updating education_details" });
+    console.log(err);
+    return res.status(500).json({ message: "Error updating education_details" });
   }
 };
 

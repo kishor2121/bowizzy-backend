@@ -1,3 +1,4 @@
+const Certificate = require("../models/Certificate");
 const db = require("../db/knex");
 const { uploadFileToCloudinary, deleteFileFromCloudinary } = require("../utils/uploadFile");
 
@@ -16,7 +17,8 @@ exports.create = async (req, res) => {
     //   data.file_url = url;
     // }
 
-    const [record] = await db("certificates")
+    const record = await Certificate
+      .query()
       .insert(data)
       .returning("*");
 
@@ -32,7 +34,8 @@ exports.getById = async (req, res) => {
   try {
     const { user_id, id } = req.params;
 
-    const record = await db("certificates")
+    const record = await Certificate
+      .query()
       .where({ user_id, certificate_id: id })
       .first();
 
@@ -49,7 +52,7 @@ exports.getByUser = async (req, res) => {
   try {
     const user_id = req.params.user_id;
 
-    const list = await db("certificates").where({ user_id });
+    const list = await Certificate.query().where({ user_id });
     res.json(list);
 
   } catch {
@@ -62,48 +65,50 @@ exports.update = async (req, res) => {
     const { user_id, id } = req.params;
     const data = req.body;
 
-    const oldRecord = await db("certificates")
+    const record = await Certificate.query()
       .where({ user_id, certificate_id: id })
       .first();
 
-    if (!oldRecord) return res.status(404).json({ message: "Not found" });
+    if (!record) {
+      return res.status(404).json({ message: "Certificate record not found for this user" });
+    }
 
     if (req.file) {
-      if (oldRecord.file_url) {
-        await deleteFileFromCloudinary(oldRecord.file_url);
+      if (record.file_url) {
+        await deleteFileFromCloudinary(record.file_url);
       }
 
       const newUrl = await uploadFileToCloudinary(req.file.buffer, "certificates");
       data.file_url = newUrl;
     }
 
-    const [updated] = await db("certificates")
-      .where({ user_id, certificate_id: id })
-      .update({ ...data, updated_at: db.fn.now() }, "*");
+    const updated = await Certificate.query()
+      .patchAndFetchById(id, { ...data, updated_at: db.fn.now() });
 
-    res.json(updated);
+    return res.status(200).json(updated);
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Error updating certificate" });
+    return res.status(500).json({ message: "Error updating certificate" });
   }
 };
+
 
 exports.remove = async (req, res) => {
   try {
     const { user_id, id } = req.params;
 
-    const oldRecord = await db("certificates")
+    const oldRecord = await Certificate.query()
       .where({ user_id, certificate_id: id })
       .first();
 
     if (!oldRecord) return res.status(404).json({ message: "Not found" });
 
-    if (oldRecord.file_url) {
-      await deleteFileFromCloudinary(oldRecord.file_url);
-    }
+    // if (oldRecord.file_url) {
+    //   await deleteFileFromCloudinary(oldRecord.file_url);
+    // }
 
-    await db("certificates")
+    await Certificate.query()
       .where({ user_id, certificate_id: id })
       .del();
 

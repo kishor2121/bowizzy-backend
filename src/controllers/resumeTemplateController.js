@@ -1,3 +1,4 @@
+const ResumeTemplate = require("../models/ResumeTemplate");
 const db = require("../db/knex");
 const { uploadFileToCloudinary, deleteFileFromCloudinary } = require("../utils/uploadFile");
 
@@ -21,7 +22,8 @@ exports.create = async (req, res) => {
       data.template_file_url = fileUrl;
     }
 
-    const [record] = await db("resume_templates")
+    const record = await ResumeTemplate
+      .query()
       .insert(data)
       .returning("*");
 
@@ -35,7 +37,7 @@ exports.create = async (req, res) => {
 
 exports.getByUser = async (req, res) => {
   try {
-    const list = await db("resume_templates")
+    const list = await ResumeTemplate.query()
       .where({ user_id: req.params.user_id });
 
     res.json(list);
@@ -49,7 +51,7 @@ exports.getById = async (req, res) => {
   try {
     const { user_id, id } = req.params;
 
-    const record = await db("resume_templates")
+    const record = await ResumeTemplate.query()
       .where({ user_id, resume_template_id: id })
       .first();
 
@@ -65,17 +67,19 @@ exports.getById = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const { user_id, id } = req.params;
-    const data = req.body;
+    const data = { ...req.body };
 
-    const oldRecord = await db("resume_templates")
+    const record = await ResumeTemplate.query()
       .where({ user_id, resume_template_id: id })
       .first();
 
-    if (!oldRecord) return res.status(404).json({ message: "Not found" });
+    if (!record) {
+      return res.status(404).json({ message: "Resume template not found for this user" });
+    }
 
-    if (req.files && req.files.thumbnail) {
-      if (oldRecord.thumbnail_url) {
-        await deleteFileFromCloudinary(oldRecord.thumbnail_url);
+    if (req.files && req.files.thumbnail && req.files.thumbnail.length > 0) {
+      if (record.thumbnail_url) {
+        await deleteFileFromCloudinary(record.thumbnail_url);
       }
 
       const newThumb = await uploadFileToCloudinary(
@@ -86,9 +90,9 @@ exports.update = async (req, res) => {
       data.thumbnail_url = newThumb;
     }
 
-    if (req.files && req.files.template_file) {
-      if (oldRecord.template_file_url) {
-        await deleteFileFromCloudinary(oldRecord.template_file_url);
+    if (req.files && req.files.template_file && req.files.template_file.length > 0) {
+      if (record.template_file_url) {
+        await deleteFileFromCloudinary(record.template_file_url);
       }
 
       const fileUrl = await uploadFileToCloudinary(
@@ -99,23 +103,23 @@ exports.update = async (req, res) => {
       data.template_file_url = fileUrl;
     }
 
-    const [updated] = await db("resume_templates")
-      .where({ user_id, resume_template_id: id })
-      .update({ ...data, updated_at: db.fn.now() }, "*");
+    const updated = await ResumeTemplate.query()
+      .patchAndFetchById(id, { ...data, updated_at: db.fn.now() });
 
-    res.json(updated);
+    return res.status(200).json(updated);
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Error updating template" });
+    console.error("Error updating resume template:", err);
+    return res.status(500).json({ message: "Error updating template" });
   }
 };
+
 
 exports.remove = async (req, res) => {
   try {
     const { user_id, id } = req.params;
 
-    const oldRecord = await db("resume_templates")
+    const oldRecord = await ResumeTemplate.query()
       .where({ user_id, resume_template_id: id })
       .first();
 
@@ -129,7 +133,7 @@ exports.remove = async (req, res) => {
       await deleteFileFromCloudinary(oldRecord.template_file_url);
     }
 
-    await db("resume_templates").where({ user_id, resume_template_id: id }).del();
+    await ResumeTemplate.query().where({ user_id, resume_template_id: id }).del();
 
     res.json({ message: "Deleted successfully" });
 
