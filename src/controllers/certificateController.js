@@ -4,47 +4,42 @@ const { uploadFileToCloudinary, deleteFileFromCloudinary } = require("../utils/u
 
 exports.create = async (req, res) => {
   try {
-    const user_id = req.params.user_id;
+    const { user_id } = req.params;
+    const { certificates } = req.body;
 
     const userExists = await db("users").where({ user_id }).first();
-    if (!userExists) return res.status(404).json({ message: "User not found" });
+    if (!userExists) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-    const data = req.body;
-    data.user_id = user_id;
+    if (!Array.isArray(certificates)) {
+      return res.status(400).json({ message: "certificates must be an array" });
+    }
 
-    // if (req.file) {
-    //   const url = await uploadFileToCloudinary(req.file.buffer, "certificates");
-    //   data.file_url = url;
-    // }
+    const rows = certificates.map(certificate => ({
+      ...certificate,
+      user_id,
+    }));
 
-    const record = await Certificate
+    // Cloudinary upload (commented out)
+    /*
+    if (req.files && req.files.length > 0) {
+      for (let i = 0; i < rows.length; i++) {
+        const url = await uploadFileToCloudinary(req.files[i].buffer, "certificates");
+        rows[i].file_url = url;
+      }
+    }
+    */
+
+    const records = await Certificate
       .query()
-      .insert(data)
+      .insert(rows)
       .returning("*");
 
-    res.status(201).json(record);
+    return res.status(201).json(records);
 
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: "Error creating certificate" });
-  }
-};
-
-exports.getById = async (req, res) => {
-  try {
-    const { user_id, id } = req.params;
-
-    const record = await Certificate
-      .query()
-      .where({ user_id, certificate_id: id })
-      .first();
-
-    if (!record) return res.status(404).json({ message: "Not found" });
-
-    res.json(record);
-
-  } catch {
-    res.status(500).json({ message: "Error fetching certificate" });
+    return res.status(500).json({ message: "Error creating certificates" });
   }
 };
 
