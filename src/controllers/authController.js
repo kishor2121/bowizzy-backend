@@ -9,7 +9,16 @@ exports.authHandler = async (req, res) => {
     const { type } = req.body;
 
     if (type === "signup") {
-      const { email, password, user_type, first_name, last_name, phone_number, gender } = req.body;
+      const { 
+        email, 
+        password, 
+        user_type, 
+        first_name, 
+        last_name, 
+        phone_number, 
+        gender,
+        date_of_birth 
+      } = req.body;
 
       const exists = await User.query().findOne({ email });
       if (exists)
@@ -31,21 +40,22 @@ exports.authHandler = async (req, res) => {
         gender
       });
 
-      await PersonalDetails.query().insert({
-        user_id: user.user_id,
-        first_name: first_name || "",
-        last_name: last_name || "",
-        email: email,
-        mobile_number: phone_number || "",
-        gender: gender || ""
-      });
+  await PersonalDetails.query().insert({
+    user_id: user.user_id,
+    first_name: first_name || "",
+    last_name: last_name || "",
+    email: email,
+    mobile_number: phone_number || "",
+    gender: gender || "",
+    date_of_birth: date_of_birth || null 
+  });
 
-      return res.status(201).json({
-        message: "Signup successful",
-        user_id: user.user_id,
-        email: user.email
-      });
-    }
+  return res.status(201).json({
+    message: "Signup successful",
+    user_id: user.user_id,
+    email: user.email
+  });
+}
 
     if (type === "login") {
       const { email, password } = req.body;
