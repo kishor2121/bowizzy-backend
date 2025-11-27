@@ -1,31 +1,26 @@
 const Certificate = require("../models/Certificate");
-const User = require("../models/User");
 
 exports.create = async (req, res) => {
   try {
-    const { user_id } = req.params;
+    const user_id = req.user.user_id;
     const { certificates } = req.body;
 
-    const userExists = await User.query().findById(user_id);
-    if (!userExists)
-      return res.status(404).json({ message: "User not found" });
-
     if (Array.isArray(certificates)) {
-      const rows = certificates.map((c) => ({
+      const rows = certificates.map(c => ({
         ...c,
-        user_id,
+        user_id
       }));
 
       const inserted = await Certificate.query().insert(rows);
       return res.status(201).json(inserted);
     }
 
-    const data = req.body;
-    data.user_id = user_id;
+    const record = await Certificate.query().insert({
+      ...req.body,
+      user_id
+    });
 
-    const record = await Certificate.query().insert(data);
-
-    res.status(201).json(record);
+    return res.status(201).json(record);
 
   } catch (err) {
     console.error(err);
@@ -35,11 +30,11 @@ exports.create = async (req, res) => {
 
 exports.getByUser = async (req, res) => {
   try {
-    const { user_id } = req.params;
+    const user_id = req.user.user_id;
 
     const list = await Certificate.query().where({ user_id });
 
-    res.json(list);
+    return res.json(list);
 
   } catch (err) {
     res.status(500).json({ message: "Error fetching certificates" });
@@ -48,15 +43,19 @@ exports.getByUser = async (req, res) => {
 
 exports.getById = async (req, res) => {
   try {
-    const { user_id, id } = req.params;
+    const user_id = req.user.user_id;
+    const { id } = req.params;
 
-    const record = await Certificate.query()
-      .findOne({ user_id, certificate_id: id });
+    const record = await Certificate.query().findOne({
+      user_id,
+      certificate_id: id
+    });
 
-    if (!record)
-      return res.status(404).json({ message: "Not found" });
+    if (!record) {
+      return res.status(404).json({ message: "Certificate record not found" });
+    }
 
-    res.json(record);
+    return res.json(record);
 
   } catch (err) {
     res.status(500).json({ message: "Error fetching certificate" });
@@ -65,23 +64,28 @@ exports.getById = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const { user_id, id } = req.params;
-    const data = req.body;
+    const user_id = req.user.user_id;
+    const { id } = req.params;
 
-    const exists = await Certificate.query()
-      .findOne({ user_id, certificate_id: id });
+    const exists = await Certificate.query().findOne({
+      user_id,
+      certificate_id: id
+    });
 
-    if (!exists)
-      return res.status(404).json({ message: "Not found" });
+    if (!exists) {
+      return res.status(404).json({ message: "Certificate record not found" });
+    }
 
     await Certificate.query()
-      .patch(data)
+      .patch(req.body)
       .where({ user_id, certificate_id: id });
 
-    const updated = await Certificate.query()
-      .findOne({ user_id, certificate_id: id });
+    const updated = await Certificate.query().findOne({
+      user_id,
+      certificate_id: id
+    });
 
-    res.json(updated);
+    return res.json(updated);
 
   } catch (err) {
     res.status(500).json({ message: "Error updating certificate" });
@@ -90,19 +94,18 @@ exports.update = async (req, res) => {
 
 exports.remove = async (req, res) => {
   try {
-    const { user_id, id } = req.params;
+    const user_id = req.user.user_id;
+    const { id } = req.params;
 
-    const exists = await Certificate.query()
-      .findOne({ user_id, certificate_id: id });
-
-    if (!exists)
-      return res.status(404).json({ message: "Not found" });
-
-    await Certificate.query()
+    const deleted = await Certificate.query()
       .delete()
       .where({ user_id, certificate_id: id });
 
-    res.json({ message: "Deleted successfully" });
+    if (!deleted) {
+      return res.status(404).json({ message: "Certificate record not found" });
+    }
+
+    return res.json({ message: "Deleted successfully" });
 
   } catch (err) {
     res.status(500).json({ message: "Error deleting certificate" });

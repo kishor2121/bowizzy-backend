@@ -23,7 +23,7 @@ router.get(
 );
 
 router.put(
-  "/users/:user_id/work-experience/job- role",
+  "/users/:user_id/work-experience/job-role",
   auth,
   controller.updateJobRole
 );

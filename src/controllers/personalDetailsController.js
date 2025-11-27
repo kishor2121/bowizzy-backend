@@ -1,17 +1,10 @@
 const PersonalDetails = require("../models/PersonalDetails");
-const User = require("../models/User");
 
 exports.create = async (req, res) => {
   try {
-    const { user_id } = req.params;
-
-    const userExists = await User.query().findById(user_id);
-    if (!userExists) {
-      return res.status(404).json({ message: "User not found" });
-    }
+    const user_id = req.user.user_id;
 
     const exists = await PersonalDetails.query().findOne({ user_id });
-
     if (exists) {
       return res.status(400).json({
         message: "Personal details already exist. Please use update instead."
@@ -26,7 +19,6 @@ exports.create = async (req, res) => {
     }
 
     const record = await PersonalDetails.query().insert(data);
-
     res.status(201).json(record);
 
   } catch (err) {
@@ -37,14 +29,9 @@ exports.create = async (req, res) => {
 
 exports.getByUser = async (req, res) => {
   try {
-    const { user_id } = req.params;
-    const userExists = await User.query().findById(user_id);
-    if (!userExists) {
-      return res.status(404).json({ message: "User not found" });
-    }
+    const user_id = req.user.user_id;
 
     const record = await PersonalDetails.query().findOne({ user_id });
-
     if (!record) return res.status(404).json({ message: "No details found" });
 
     res.json(record);
@@ -56,12 +43,8 @@ exports.getByUser = async (req, res) => {
 
 exports.getById = async (req, res) => {
   try {
-    const { user_id, id } = req.params;
-
-    const userExists = await User.query().findById(user_id);
-    if (!userExists) {
-      return res.status(404).json({ message: "User not found" });
-    }
+    const user_id = req.user.user_id;
+    const { id } = req.params;
 
     const record = await PersonalDetails.query()
       .findOne({ user_id, personal_id: id });
@@ -77,13 +60,8 @@ exports.getById = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const { user_id, id } = req.params;
-
-    const userExists = await User.query().findById(user_id);
-    if (!userExists) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
+    const user_id = req.user.user_id;
+    const { id } = req.params;
     const data = req.body;
 
     if (data.languages_known && typeof data.languages_known === "string") {
@@ -91,7 +69,7 @@ exports.update = async (req, res) => {
     }
 
     const updated = await PersonalDetails.query()
-      .patchAndFetchById(id, data)  
+      .patchAndFetchById(id, data)
       .where({ user_id });
 
     if (!updated) {
@@ -108,12 +86,8 @@ exports.update = async (req, res) => {
 
 exports.remove = async (req, res) => {
   try {
-    const { user_id, id } = req.params;
-
-    const userExists = await User.query().findById(user_id);
-    if (!userExists) {
-      return res.status(404).json({ message: "User not found" });
-    }
+    const user_id = req.user.user_id;
+    const { id } = req.params;
 
     const deleted = await PersonalDetails.query()
       .delete()
@@ -130,10 +104,9 @@ exports.remove = async (req, res) => {
 
 exports.getAll = async (req, res) => {
   try {
-    const user_id = req.user.user_id; 
+    const user_id = req.user.user_id;
 
-    const list = await PersonalDetails.query()
-      .where({ user_id });
+    const list = await PersonalDetails.query().where({ user_id });
 
     if (list.length === 0) {
       return res.status(404).json({ message: "No personal details found" });
@@ -145,4 +118,3 @@ exports.getAll = async (req, res) => {
     res.status(500).json({ message: "Error fetching data" });
   }
 };
-

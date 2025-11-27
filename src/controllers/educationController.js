@@ -1,16 +1,9 @@
 const Education = require("../models/Education");
-const User = require("../models/User");
-const db = require("../db/knex");
 
 exports.create = async (req, res) => {
   try {
-    const { user_id } = req.params;
+    const user_id = req.user.user_id;
     const data = req.body;
-
-    const userExists = await User.query().findById(user_id);
-    if (!userExists) {
-      return res.status(404).json({ message: "User not found" });
-    }
 
     if (Array.isArray(data)) {
       const payload = data.map(item => ({ ...item, user_id }));
@@ -33,12 +26,11 @@ exports.create = async (req, res) => {
 
 exports.getByUser = async (req, res) => {
   try {
-    const { user_id } = req.params;
+    const user_id = req.user.user_id;
 
-    const userExists = await User.query().findById(user_id);
-    if (!userExists) return res.status(404).json({ message: "User not found" });
-
-    const list = await Education.query().where({ user_id });
+    const list = await Education.query()
+      .where({ user_id })
+      .orderBy("education_id", "asc");
 
     res.json(list);
 
@@ -49,17 +41,15 @@ exports.getByUser = async (req, res) => {
 
 exports.getById = async (req, res) => {
   try {
-    const { user_id, id } = req.params;
-
-    const userExists = await User.query().findById(user_id);
-    if (!userExists) return res.status(404).json({ message: "User not found" });
+    const user_id = req.user.user_id;
+    const { id } = req.params;
 
     const record = await Education.query().findOne({
       user_id,
       education_id: id
     });
 
-    if (!record) return res.status(404).json({ message: "Not found" });
+    if (!record) return res.status(404).json({ message: "Education record not found" });
 
     res.json(record);
 
@@ -70,24 +60,22 @@ exports.getById = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const { user_id, id } = req.params;
+    const user_id = req.user.user_id;
+    const { id } = req.params;
     const data = req.body;
 
-    const userExists = await User.query().findById(user_id);
-    if (!userExists) return res.status(404).json({ message: "User not found" });
-
-    const updatedRowCount = await Education
-      .query()
+    const updatedCount = await Education.query()
       .patch(data)
       .where({ user_id, education_id: id });
 
-    if (updatedRowCount === 0) {
-      return res.status(404).json({ message: "Not found" });
+    if (updatedCount === 0) {
+      return res.status(404).json({ message: "Education record not found" });
     }
 
-    const updated = await Education
-      .query()
-      .findOne({ user_id, education_id: id });
+    const updated = await Education.query().findOne({
+      user_id,
+      education_id: id
+    });
 
     res.json(updated);
 
@@ -99,13 +87,10 @@ exports.update = async (req, res) => {
 
 exports.remove = async (req, res) => {
   try {
-    const { user_id, id } = req.params;
+    const user_id = req.user.user_id;
+    const { id } = req.params;
 
-    const userExists = await User.query().findById(user_id);
-    if (!userExists) return res.status(404).json({ message: "User not found" });
-
-    const deleted = await Education
-      .query()
+    const deleted = await Education.query()
       .delete()
       .where({
         user_id,
@@ -113,7 +98,7 @@ exports.remove = async (req, res) => {
       });
 
     if (!deleted) {
-      return res.status(404).json({ message: "Not found" });
+      return res.status(404).json({ message: "Education record not found" });
     }
 
     res.json({ message: "Deleted successfully" });

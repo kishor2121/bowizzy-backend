@@ -99,46 +99,45 @@ exports.authHandler = async (req, res) => {
         });
       }
 
+      if (type === "google") {
+        const { idToken } = req.body;
+        if (!idToken)
+          return res.status(400).json({ message: "idToken required" });
 
-    if (type === "google") {
-      const { idToken } = req.body;
-      if (!idToken)
-        return res.status(400).json({ message: "idToken required" });
+        const decoded = await admin.auth().verifyIdToken(idToken);
+        const email = decoded.email;
 
-      const decoded = await admin.auth().verifyIdToken(idToken);
-      const email = decoded.email;
+        let user = await User.query().findOne({ email });
 
-      let user = await User.query().findOne({ email });
+        if (!user) {
+          user = await User.query().insert({
+            email,
+            password_hash: "",
+            user_type: "regular"
+          });
 
-      if (!user) {
-        user = await User.query().insert({
-          email,
-          password_hash: "",
-          user_type: "regular"
-        });
+          await PersonalDetails.query().insert({
+            user_id: user.user_id,
+            email
+          });
+        }
 
-        await PersonalDetails.query().insert({
+        const token = jwt.sign(
+          { user_id: user.user_id, user_type: user.user_type },
+          process.env.JWT_SECRET,
+          { expiresIn: process.env.JWT_EXPIRES_IN }
+        );
+
+        return res.json({
+          message: "Google login successful",
           user_id: user.user_id,
-          email
+          email: user.email,
+          token
         });
       }
-
-      const token = jwt.sign(
-        { user_id: user.user_id, user_type: user.user_type },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN }
-      );
-
-      return res.json({
-        message: "Google login successful",
-        user_id: user.user_id,
-        email: user.email,
-        token
+      return res.status(400).json({
+        message: "Invalid type. Must be one of: signup | login | google",
       });
-    }
-    return res.status(400).json({
-      message: "Invalid type. Must be one of: signup | login | google",
-    });
 
   } catch (err) {
     console.error("Auth Error:", err);

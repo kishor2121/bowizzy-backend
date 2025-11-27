@@ -1,23 +1,19 @@
 const WorkExperience = require("../models/WorkExperience");
-const User = require("../models/User");
-const JobRole = require("../models/JobRole"); // new model
+const JobRole = require("../models/JobRole");
 
 exports.create = async (req, res) => {
   try {
-    const { user_id } = req.params;
+    const user_id = req.user.user_id;
     const { job_role, experiences } = req.body;
 
-    const userExists = await User.query().findById(user_id);
-    if (!userExists)
-      return res.status(404).json({ message: "User not found" });
-
-    if (!Array.isArray(experiences))
+    if (!Array.isArray(experiences)) {
       return res.status(400).json({ message: "experiences must be an array" });
+    }
 
     if (job_role) {
-      const existsRole = await JobRole.query().findOne({ user_id });
+      const exists = await JobRole.query().findOne({ user_id });
 
-      if (existsRole) {
+      if (exists) {
         await JobRole.query().patch({ job_role }).where({ user_id });
       } else {
         await JobRole.query().insert({ user_id, job_role });
@@ -44,11 +40,7 @@ exports.create = async (req, res) => {
 
 exports.getByUser = async (req, res) => {
   try {
-    const { user_id } = req.params;
-
-    const userExists = await User.query().findById(user_id);
-    if (!userExists)
-      return res.status(404).json({ message: "User not found" });
+    const user_id = req.user.user_id;
 
     const jobRole = await JobRole.query().findOne({ user_id });
 
@@ -68,11 +60,8 @@ exports.getByUser = async (req, res) => {
 
 exports.getById = async (req, res) => {
   try {
-    const { user_id, id } = req.params;
-
-    const userExists = await User.query().findById(user_id);
-    if (!userExists)
-      return res.status(404).json({ message: "User not found" });
+    const user_id = req.user.user_id;
+    const { id } = req.params;
 
     const record = await WorkExperience.query().findOne({
       user_id,
@@ -80,7 +69,7 @@ exports.getById = async (req, res) => {
     });
 
     if (!record)
-      return res.status(404).json({ message: "Not found" });
+      return res.status(404).json({ message: "WorkExperience record not found" });
 
     res.json(record);
 
@@ -91,22 +80,17 @@ exports.getById = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const { user_id, id } = req.params;
+    const user_id = req.user.user_id;
+    const { id } = req.params;
     const data = req.body;
 
-    const userExists = await User.query().findById(user_id);
-    if (!userExists)
-      return res.status(404).json({ message: "User not found" });
-
-    const updatedRowCount = await WorkExperience.query()
+    const updatedCount = await WorkExperience.query()
       .patch(data)
-      .where({
-        user_id,
-        experience_id: id
-      });
+      .where({ user_id, experience_id: id });
 
-    if (updatedRowCount === 0)
-      return res.status(404).json({ message: "Not found" });
+    if (updatedCount === 0) {
+      return res.status(404).json({ message: "WorkExperience record not found" });
+    }
 
     const updated = await WorkExperience.query().findOne({
       user_id,
@@ -122,11 +106,8 @@ exports.update = async (req, res) => {
 
 exports.remove = async (req, res) => {
   try {
-    const { user_id, id } = req.params;
-
-    const userExists = await User.query().findById(user_id);
-    if (!userExists)
-      return res.status(404).json({ message: "User not found" });
+    const user_id = req.user.user_id;
+    const { id } = req.params;
 
     const deleted = await WorkExperience.query()
       .delete()
@@ -136,7 +117,7 @@ exports.remove = async (req, res) => {
       });
 
     if (!deleted)
-      return res.status(404).json({ message: "Not found" });
+      return res.status(404).json({ message: "WorkExperience record not found" });
 
     res.json({ message: "Deleted successfully" });
 
@@ -147,16 +128,11 @@ exports.remove = async (req, res) => {
 
 exports.updateJobRole = async (req, res) => {
   try {
-    const { user_id } = req.params;
+    const user_id = req.user.user_id;
     const { job_role } = req.body;
 
     if (!job_role) {
       return res.status(400).json({ message: "job_role is required" });
-    }
-
-    const userExists = await User.query().findById(user_id);
-    if (!userExists) {
-      return res.status(404).json({ message: "User not found" });
     }
 
     const exists = await JobRole.query().findOne({ user_id });
