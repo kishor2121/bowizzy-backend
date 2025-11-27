@@ -15,6 +15,10 @@ exports.authHandler = async (req, res) => {
       if (exists)
         return res.status(400).json({ message: "Email already exists" });
 
+      const existsPhone = await User.query().findOne({ phone_number });
+      if (existsPhone)
+        return res.status(400).json({ message: "Phone number already exists" });
+
       const password_hash = await bcrypt.hash(password, 10);
 
       const user = await User.query().insert({
