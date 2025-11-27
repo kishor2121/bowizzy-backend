@@ -74,30 +74,31 @@ exports.authHandler = async (req, res) => {
         });
       }
 
-    if (type === "login") {
-      const { email, password } = req.body;
+      if (type === "login") {
+        const { email, password } = req.body;
 
-      const user = await User.query().findOne({ email });
-      if (!user)
-        return res.status(401).json({ message: "Invalid credentials" });
+        const user = await User.query().findOne({ email });
+        if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
-      const match = await bcrypt.compare(password, user.password_hash);
-      if (!match)
-        return res.status(401).json({ message: "Invalid credentials" });
+        const match = await bcrypt.compare(password, user.password_hash);
+        if (!match) return res.status(401).json({ message: "Invalid credentials" });
 
-      const token = jwt.sign(
-        { user_id: user.user_id, user_type: user.user_type },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN }
-      );
+        const token = jwt.sign(
+          { user_id: user.user_id, user_type: user.user_type },
+          process.env.JWT_SECRET,
+          { expiresIn: process.env.JWT_EXPIRES_IN }
+        );
 
-      return res.json({
-        message: "Login successful",
-        user_id: user.user_id,
-        email: user.email,
-        token
-      });
-    }
+        await User.query().patch({ current_token: token }).where({ user_id: user.user_id });
+
+        return res.json({
+          message: "Login successful",
+          user_id: user.user_id,
+          email: user.email,
+          token
+        });
+      }
+
 
     if (type === "google") {
       const { idToken } = req.body;

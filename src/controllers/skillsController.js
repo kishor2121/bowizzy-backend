@@ -29,7 +29,6 @@ exports.create = async (req, res) => {
   }
 };
 
-
 exports.getByUser = async (req, res) => {
   try {
     const { user_id } = req.params;
@@ -99,7 +98,6 @@ exports.update = async (req, res) => {
     res.status(500).json({ message: "Error updating skill" });
   }
 };
-
 
 exports.remove = async (req, res) => {
   try {
