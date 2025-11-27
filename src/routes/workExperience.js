@@ -23,6 +23,12 @@ router.get(
 );
 
 router.put(
+  "/users/:user_id/work-experience/jobrole",
+  auth,
+  controller.updateJobRole
+);
+
+router.put(
   "/users/:user_id/work-experience/:id",
   auth,
   controller.update
@@ -32,12 +38,6 @@ router.delete(
   "/users/:user_id/work-experience/:id",
   auth,
   controller.remove
-);
-
-router.put(
-  "/users/:user_id/work-experience/jobrole",
-  auth,
-  controller.updateJobRole
 );
 
 module.exports = router;

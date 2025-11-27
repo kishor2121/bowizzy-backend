@@ -155,25 +155,25 @@ exports.updateJobRole = async (req, res) => {
     }
 
     const userExists = await User.query().findById(user_id);
-    if (!userExists)
+    if (!userExists) {
       return res.status(404).json({ message: "User not found" });
+    }
 
-    const existsRole = await JobRole.query().findOne({ user_id });
+    const exists = await JobRole.query().findOne({ user_id });
 
-    if (existsRole) {
+    if (exists) {
       await JobRole.query().patch({ job_role }).where({ user_id });
     } else {
       await JobRole.query().insert({ user_id, job_role });
     }
 
     return res.json({
-      message: "Job role updated",
+      message: "Job role updated successfully",
       job_role
     });
 
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: "Error updating job role" });
+    console.error("Job role update error:", err);
+    res.status(500).json({ message: "Error updating job role" });
   }
 };
-

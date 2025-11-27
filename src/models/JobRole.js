@@ -7,9 +7,10 @@ class JobRole extends Model {
   static get tableName() {
     return "job_roles";
   }
+
   static get idColumn() {
-    return "job_role_id";
+    return "id";
   }
 }
 
-module.exports = JobRole;
+module.exports = JobRole
