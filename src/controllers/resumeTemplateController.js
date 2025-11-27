@@ -12,7 +12,10 @@ exports.create = async (req, res) => {
 
     if (Array.isArray(data.templates)) {
       const payload = data.templates.map(item => ({
-        ...item,
+        template_name: item.template_name,
+        template_code: item.template_code,   // renamed
+        thumbnail_url: item.thumbnail_url,
+        template_file_url: item.template_file_url,
         user_id
       }));
 
@@ -20,9 +23,13 @@ exports.create = async (req, res) => {
       return res.status(201).json(inserted);
     }
 
-    data.user_id = user_id;
-
-    const record = await ResumeTemplate.query().insert(data);
+    const record = await ResumeTemplate.query().insert({
+      template_name: data.template_name,
+      template_code: data.template_code,
+      thumbnail_url: data.thumbnail_url,
+      template_file_url: data.template_file_url,
+      user_id
+    });
 
     return res.status(201).json(record);
 
@@ -54,7 +61,7 @@ exports.getById = async (req, res) => {
       .findOne({ user_id, resume_template_id: id });
 
     if (!record)
-      return res.status(404).json({ message: "Not found" });
+      return res.status(404).json({ message: "No resume template found" });
 
     res.json(record);
 
@@ -72,10 +79,15 @@ exports.update = async (req, res) => {
       .findOne({ user_id, resume_template_id: id });
 
     if (!exists)
-      return res.status(404).json({ message: "Not found" });
+      return res.status(404).json({ message: "No resume template found" });
 
     await ResumeTemplate.query()
-      .update(data)
+      .update({
+        template_name: data.template_name,
+        template_code: data.template_code,
+        thumbnail_url: data.thumbnail_url,
+        template_file_url: data.template_file_url
+      })
       .where({ user_id, resume_template_id: id });
 
     const updated = await ResumeTemplate.query()
@@ -96,7 +108,7 @@ exports.remove = async (req, res) => {
       .findOne({ user_id, resume_template_id: id });
 
     if (!exists)
-      return res.status(404).json({ message: "Not found" });
+      return res.status(404).json({ message: "No resume template found" });
 
     await ResumeTemplate.query()
       .delete()

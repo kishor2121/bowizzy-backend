@@ -8,54 +8,71 @@ exports.authHandler = async (req, res) => {
   try {
     const { type } = req.body;
 
-    if (type === "signup") {
-      const { 
-        email, 
-        password, 
-        user_type, 
-        first_name, 
-        last_name, 
-        phone_number, 
-        gender,
-        date_of_birth 
-      } = req.body;
+      if (type === "signup") {
+        const { 
+          email, 
+          password, 
+          user_type, 
+          first_name, 
+          last_name, 
+          phone_number, 
+          gender,
+          date_of_birth 
+        } = req.body;
 
-      const exists = await User.query().findOne({ email });
-      if (exists)
-        return res.status(400).json({ message: "Email already exists" });
+        const requiredFields = ["email", "password", "first_name", "last_name", "phone_number"];
 
-      const existsPhone = await User.query().findOne({ phone_number });
-      if (existsPhone)
-        return res.status(400).json({ message: "Phone number already exists" });
+        let missing = [];
 
-      const password_hash = await bcrypt.hash(password, 10);
+        requiredFields.forEach(field => {
+          if (!req.body[field]) {
+            missing.push(field);
+          }
+        });
 
-      const user = await User.query().insert({
-        email,
-        password_hash,
-        user_type: user_type || "regular",
-        first_name,
-        last_name,
-        phone_number,
-        gender
-      });
+        if (missing.length > 0) {
+          return res.status(400).json({
+            message: "Missing required fields",
+            missing: missing
+          });
+        }
 
-  await PersonalDetails.query().insert({
-    user_id: user.user_id,
-    first_name: first_name || "",
-    last_name: last_name || "",
-    email: email,
-    mobile_number: phone_number || "",
-    gender: gender || "",
-    date_of_birth: date_of_birth || null 
-  });
+        const exists = await User.query().findOne({ email });
+        if (exists)
+          return res.status(400).json({ message: "Email already exists" });
 
-  return res.status(201).json({
-    message: "Signup successful",
-    user_id: user.user_id,
-    email: user.email
-  });
-}
+        const existsPhone = await User.query().findOne({ phone_number });
+        if (existsPhone)
+          return res.status(400).json({ message: "Phone number already exists" });
+
+        const password_hash = await bcrypt.hash(password, 10);
+
+        const user = await User.query().insert({
+          email,
+          password_hash,
+          user_type: user_type || "regular",
+          first_name,
+          last_name,
+          phone_number,
+          gender
+        });
+
+        await PersonalDetails.query().insert({
+          user_id: user.user_id,
+          first_name,
+          last_name,
+          email,
+          mobile_number: phone_number,
+          gender: gender || "",
+          date_of_birth: date_of_birth || null
+        });
+
+        return res.status(201).json({
+          message: "Signup successful",
+          user_id: user.user_id,
+          email: user.email
+        });
+      }
 
     if (type === "login") {
       const { email, password } = req.body;

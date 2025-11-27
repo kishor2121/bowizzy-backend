@@ -34,4 +34,10 @@ router.delete(
   controller.remove
 );
 
+router.put(
+  "/users/:user_id/work-experience/jobrole",
+  auth,
+  controller.updateJobRole
+);
+
 module.exports = router;
