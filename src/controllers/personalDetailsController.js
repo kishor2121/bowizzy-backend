@@ -66,7 +66,7 @@ exports.getById = async (req, res) => {
     const record = await PersonalDetails.query()
       .findOne({ user_id, personal_id: id });
 
-    if (!record) return res.status(404).json({ message: "Not found" });
+    if (!record) return res.status(404).json({ message: "No personal details found" });
 
     res.json(record);
 
@@ -95,7 +95,7 @@ exports.update = async (req, res) => {
       .where({ user_id });
 
     if (!updated) {
-      return res.status(404).json({ message: "Not found" });
+      return res.status(404).json({ message: "No personal details found" });
     }
 
     res.json(updated);
@@ -119,7 +119,7 @@ exports.remove = async (req, res) => {
       .delete()
       .where({ user_id, personal_id: id });
 
-    if (!deleted) return res.status(404).json({ message: "Not found" });
+    if (!deleted) return res.status(404).json({ message: "No personal details found" });
 
     res.json({ message: "Deleted successfully" });
 
