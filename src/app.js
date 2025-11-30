@@ -24,6 +24,7 @@ const certificatesRouter = require("./routes/certificates");
 const resumeTemplatesRouter = require("./routes/resumeTemplates");
 const locationRouter = require("./routes/location");
 const dashboardRouter = require("./routes/dashboard");
+const technicalSummaryRouter = require("./routes/technicalSummary");
 
 app.use("/auth", authRouter);
 app.use("/", personalDetailsRouter);
@@ -36,6 +37,7 @@ app.use("/", certificatesRouter);
 app.use("/", resumeTemplatesRouter);
 app.use("/", locationRouter);
 app.use("/", dashboardRouter);
+app.use("/", technicalSummaryRouter);
 
 app.get("/", (req, res) => {
   res.send("Node backend is working!");
