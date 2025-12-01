@@ -26,6 +26,7 @@ const locationRouter = require("./routes/location");
 const dashboardRouter = require("./routes/dashboard");
 const technicalSummaryRouter = require("./routes/technicalSummary");
 const userSubscriptionRouter = require("./routes/userSubscription");
+const resumeRouter = require("./routes/resume");
 
 app.use("/auth", authRouter);
 app.use("/", personalDetailsRouter);
@@ -40,6 +41,7 @@ app.use("/", locationRouter);
 app.use("/", dashboardRouter);
 app.use("/", technicalSummaryRouter);
 app.use("/", userSubscriptionRouter);
+app.use("/", resumeRouter);
 
 app.get("/", (req, res) => {
   res.send("Node backend is working!");
