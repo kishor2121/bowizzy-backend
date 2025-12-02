@@ -60,6 +60,22 @@ exports.create = async (req, res) => {
   }
 };
 
+exports.getAll = async (req, res) => {
+  try {
+    const list = await InterviewSlot.query()
+      .orderBy("start_time_utc", "asc");
+
+    if (!list || list.length === 0) {
+      return res.status(404).json({ message: "No interview slots found" });
+    }
+
+    res.json(list);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error fetching interview slots" });
+  }
+};
 
 exports.getByUser = async (req, res) => {
   try {
