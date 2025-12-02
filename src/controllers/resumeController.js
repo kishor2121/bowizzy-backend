@@ -389,6 +389,18 @@ async function saveWorkExperience(userId, list) {
   if (!Array.isArray(list)) return saved;
 
   for (let w of list) {
+
+    let startYM = formatYearMonth(w.start_date);
+    let startDate = monthToFullDate(startYM);
+
+    let endLower = (w.end_date || "").toString().toLowerCase();
+    let endDate = null;
+
+    if (!endLower.includes("present") && !endLower.includes("current")) {
+      const endYM = formatYearMonth(w.end_date);
+      endDate = monthToFullDate(endYM);
+    }
+
     const record = {
       user_id: userId,
       company_name: w.company_name || null,
@@ -396,9 +408,13 @@ async function saveWorkExperience(userId, list) {
       employment_type: w.employment_type || null,
       location: w.location || null,
       work_mode: w.work_mode || null,
-      start_date: w.start_date || null,
-      end_date: w.end_date || null,
-      currently_working_here: w.currently_working_here || false,
+
+      start_date: startDate,
+      end_date: endDate,
+
+      currently_working_here:
+        endDate === null ? true : !!w.currently_working_here,
+
       description: w.description || null
     };
 
@@ -407,6 +423,16 @@ async function saveWorkExperience(userId, list) {
   }
 
   return saved;
+}
+
+function monthToFullDate(ym) {
+  if (!ym) return null;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(ym)) return ym;
+
+  if (/^\d{4}-\d{2}$/.test(ym)) return `${ym}-01`;
+
+  return null;
 }
 
 async function saveSkills(userId, skillsList) {
