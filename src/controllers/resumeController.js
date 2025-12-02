@@ -159,7 +159,6 @@ async function saveEducation(userId, list) {
   return saved;
 }
 
-
 function normalizeBoardType(board) {
   if (!board) return null;
 
@@ -264,7 +263,6 @@ function normalizeFieldOfStudy(text) {
 
   return clean.trim();
 }
-
 
 function normalizeResultFormat(text) {
   if (!text) return null;
@@ -469,16 +467,19 @@ async function saveLinks(userId, links) {
 
 async function saveCertificates(userId, list) {
   const saved = [];
+
   if (!Array.isArray(list)) return saved;
 
   for (let c of list) {
     const record = {
       user_id: userId,
-      certificate_type: c.certificate_type || null,
+      certificate_type: c.certificate_type || "Award",
       certificate_title: c.certificate_title || null,
       domain: c.domain || null,
       certificate_provided_by: c.certificate_provided_by || null,
-      date: c.date || null,
+
+      date: monthToFullDate(formatYearMonth(c.date)),
+
       description: c.description || null,
       file_url: c.file_url || null,
       file_type: c.file_type || null
