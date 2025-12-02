@@ -370,8 +370,10 @@ async function saveProjects(userId, projectList) {
       user_id: userId,
       project_title: proj.project_title || null,
       project_type: proj.project_type || null,
-      start_date: proj.start_date || null,
-      end_date: proj.end_date || null,
+
+      start_date: formatYearMonth(proj.start_date),
+      end_date: formatYearMonth(proj.end_date),
+
       currently_working: proj.currently_working || false,
       description: proj.description || null,
       roles_responsibilities: proj.roles_responsibilities || null
