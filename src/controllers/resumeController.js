@@ -10,29 +10,290 @@ const Skill = require("../models/Skill");
 const Link = require("../models/Link");
 const Certificate = require("../models/Certificate");
 
-const LOCKED_FIELDS = ["first_name", "last_name", "email", "mobile_number", "gender"];
-
 function normalizeEducationType(type) {
   if (!type) return "other";
-
   const t = type.toLowerCase();
 
   if (t.includes("sslc") || t.includes("10")) return "sslc";
   if (t.includes("puc") || t.includes("12")) return "puc";
 
   if (
-    t.includes("b.") ||
-    t.includes("btech") ||
-    t.includes("b.e") ||
-    t.includes("bachelor") ||
-    t.includes("master") ||
-    t.includes("m.") ||
-    t.includes("degree")
-  ) {
-    return "higher";
-  }
+    t.includes("btech") || t.includes("b.e") || t.includes("be") ||
+    t.includes("bachelor") || t.includes("mtech") || t.includes("master") ||
+    t.includes("diploma") || t.includes("phd")
+  ) return "higher";
 
   return "other";
+}
+
+function normalizeBoardType(board) {
+  if (!board) return null;
+  const t = board.toLowerCase();
+  if (t.includes("cbse")) return "CBSE";
+  if (t.includes("icse")) return "ICSE";
+  if (t.includes("state")) return "State Board";
+  return null;
+}
+
+function normalizeDegree(text) {
+  if (!text) return null;
+  const t = text.toLowerCase();
+
+  if (t.includes("bachelor") || t.includes("b.e") || t.includes("be") || t.includes("btech"))
+    return "Bachelor's Degree";
+
+  if (t.includes("master") || t.includes("m.e") || t.includes("me") || t.includes("mtech"))
+    return "Master's Degree";
+
+  if (t.includes("diploma")) return "Diploma";
+  if (t.includes("phd")) return "PhD";
+
+  return null;
+}
+
+function normalizeFieldOfStudy(text) {
+  if (!text) return null;
+
+  let clean = text.replace(/—.*/g, "")
+                  .replace(/-.*/g, "")
+                  .replace(/\(.*/g, "")
+                  .trim();
+
+  const lower = clean.toLowerCase();
+
+  const fullForms = [
+    "computer science", "information technology", "electronics and communication",
+    "electronics", "electrical engineering", "mechanical engineering",
+    "civil engineering", "automobile engineering", "biotechnology",
+    "data science", "artificial intelligence", "machine learning"
+  ];
+
+  for (let field of fullForms) {
+    if (lower.includes(field)) return field;
+  }
+
+  const shortForms = {
+    cse: "Computer Science",
+    cs: "Computer Science",
+    it: "Information Technology",
+    ece: "Electronics and Communication",
+    eee: "Electrical Engineering",
+    mech: "Mechanical Engineering",
+    civil: "Civil Engineering",
+    auto: "Automobile Engineering",
+    aiml: "Artificial Intelligence & Machine Learning",
+    ai: "Artificial Intelligence",
+    ml: "Machine Learning",
+    ds: "Data Science"
+  };
+
+  for (let key in shortForms) {
+    if (lower.includes(key)) return shortForms[key];
+  }
+
+  if (lower.includes(" in ")) {
+    return clean.split(/in/i)[1].trim();
+  }
+
+  return clean;
+}
+
+function normalizeResultFormat(text) {
+  if (!text) return null;
+  const t = text.toLowerCase();
+  if (t.includes("cgpa")) return "CGPA";
+  if (t.includes("percent") || t.includes("%")) return "Percentage";
+  return null;
+}
+
+function extractResultValue(text) {
+  if (!text) return null;
+  const num = text.match(/(\d+(\.\d+)?)/);
+  return num ? num[1] : null;
+}
+
+function formatYearMonth(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d)) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+async function saveEducation(userId, list) {
+  const saved = [];
+  if (!Array.isArray(list)) return saved;
+
+  for (let edu of list) {
+
+    const fieldOfStudy = normalizeFieldOfStudy(edu.field_of_study || edu.degree);
+
+    const record = {
+      user_id: userId,
+      education_type: normalizeEducationType(edu.education_type),
+
+      institution_name: edu.institution_name || null,
+
+      board_type: normalizeBoardType(edu.board_type),
+
+      subject_stream: edu.subject_stream || null,
+
+      degree: normalizeDegree(edu.degree),
+
+      field_of_study: fieldOfStudy,
+
+      university_name: edu.university_name || null,
+
+      start_year: formatYearMonth(edu.start_year),
+      end_year: formatYearMonth(edu.end_year),
+
+      currently_pursuing: edu.currently_pursuing || false,
+
+      result_format: normalizeResultFormat(edu.result_format || edu.result),
+      result: extractResultValue(edu.result || edu.result_format)
+    };
+
+    const inserted = await Education.query().insert(record);
+    saved.push(inserted);
+  }
+
+  return saved;
+}
+
+
+function normalizeBoardType(board) {
+  if (!board) return null;
+
+  const t = board.toLowerCase();
+
+  if (t.includes("cbse")) return "CBSE";
+  if (t.includes("icse")) return "ICSE";
+  if (t.includes("state")) return "State Board";
+
+  return null;
+}
+
+function normalizeDegree(text) {
+  if (!text) return null;
+
+  const t = text.toLowerCase();
+
+  if (t.includes("bachelor") || t.includes("b.e") || t.includes("be") || t.includes("btech"))
+    return "Bachelor's Degree";
+
+  if (t.includes("master") || t.includes("m.e") || t.includes("me") || t.includes("mtech"))
+    return "Master's Degree";
+
+  if (t.includes("diploma"))
+    return "Diploma";
+
+  if (t.includes("phd") || t.includes("doctor"))
+    return "PhD";
+
+  return null;
+}
+
+function normalizeFieldOfStudy(text) {
+  if (!text) return null;
+
+  let clean = text.replace(/—.*/g, "")  
+                  .replace(/-.*/g, "")
+                  .replace(/\(.*/g, "")
+                  .trim();
+
+  const lower = clean.toLowerCase();
+
+  const fullForms = [
+    "computer science",
+    "information technology",
+    "electronics and communication",
+    "electronics",
+    "electrical engineering",
+    "mechanical engineering",
+    "civil engineering",
+    "automobile engineering",
+    "biotechnology",
+    "chemical engineering",
+    "aerospace engineering",
+    "data science",
+    "artificial intelligence",
+    "machine learning",
+    "ai and ml",
+    "mechatronics",
+    "robotics",
+    "software engineering",
+    "commerce",
+    "science",
+    "arts"
+  ];
+
+  for (let field of fullForms) {
+    if (lower.includes(field.toLowerCase())) {
+      return field;
+    }
+  }
+
+  const shortForms = {
+    cse: "Computer Science",
+    cs: "Computer Science",
+    it: "Information Technology",
+    ece: "Electronics and Communication",
+    eee: "Electrical Engineering",
+    mech: "Mechanical Engineering",
+    civil: "Civil Engineering",
+    auto: "Automobile Engineering",
+    aiml: "Artificial Intelligence & Machine Learning",
+    ai: "Artificial Intelligence",
+    ml: "Machine Learning",
+    ds: "Data Science"
+  };
+
+  for (let key in shortForms) {
+    if (lower.includes(key)) {
+      return shortForms[key];
+    }
+  }
+
+  if (lower.includes(" in ")) {
+    const branch = clean.split(/in/i)[1].trim();
+    return branch;
+  }
+
+  if (clean.split(" ").length <= 3) {
+    return clean;
+  }
+
+  return clean.trim();
+}
+
+
+function normalizeResultFormat(text) {
+  if (!text) return null;
+
+  const t = text.toLowerCase();
+
+  if (t.includes("cgpa")) return "CGPA";
+  if (t.includes("percent")) return "Percentage";
+
+  return null;
+}
+
+function extractResultValue(text) {
+  if (!text) return null;
+
+  const num = text.match(/(\d+(\.\d+)?)/);
+  return num ? num[1] : null;
+}
+
+function formatYearMonth(dateStr) {
+  if (!dateStr) return null;
+
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+
+  return `${year}-${month}`;
 }
 
 async function updatePersonalDetails(userId, pd) {
@@ -47,10 +308,7 @@ async function updatePersonalDetails(userId, pd) {
     country: pd.country || existing.country
   };
 
-  await PersonalDetails.query()
-    .patch(updateData)
-    .where("user_id", userId);
-
+  await PersonalDetails.query().patch(updateData).where("user_id", userId);
   return "updated";
 }
 
@@ -59,20 +317,30 @@ async function saveEducation(userId, list) {
   if (!Array.isArray(list)) return saved;
 
   for (let edu of list) {
+    const educationType = normalizeEducationType(edu.education_type);
+
     const record = {
       user_id: userId,
-      education_type: normalizeEducationType(edu.education_type),
+      education_type: educationType,
+
       institution_name: edu.institution_name || null,
-      board_type: edu.board_type || null,
+
+      board_type: normalizeBoardType(edu.board_type),
+
       subject_stream: edu.subject_stream || null,
-      degree: edu.degree || null,
-      field_of_study: edu.field_of_study || null,
+
+      degree: normalizeDegree(edu.degree),
+      field_of_study: normalizeFieldOfStudy(edu.field_of_study),
+
       university_name: edu.university_name || null,
-      start_year: edu.start_year || null,
-      end_year: edu.end_year || null,
+
+      start_year: formatYearMonth(edu.start_year),
+      end_year: formatYearMonth(edu.end_year),
+
       currently_pursuing: edu.currently_pursuing || false,
-      result_format: edu.result_format || null,
-      result: edu.result || null
+
+      result_format: normalizeResultFormat(edu.result_format),
+      result: extractResultValue(edu.result)
     };
 
     const inserted = await Education.query().insert(record);
@@ -84,10 +352,7 @@ async function saveEducation(userId, list) {
 
 async function saveJobRole(userId, workList) {
   if (!Array.isArray(workList) || workList.length === 0) return null;
-
-  // take latest job title
   const latestJobTitle = workList[0].job_title;
-
   if (!latestJobTitle) return null;
 
   return await JobRole.query().insert({
@@ -98,7 +363,6 @@ async function saveJobRole(userId, workList) {
 
 async function saveProjects(userId, projectList) {
   const saved = [];
-
   if (!Array.isArray(projectList)) return saved;
 
   for (let proj of projectList) {
@@ -146,6 +410,7 @@ async function saveWorkExperience(userId, list) {
 }
 
 async function saveSkills(userId, skillsList) {
+  if (!Array.isArray(skillsList)) return;
   for (let s of skillsList) {
     await Skill.query().insert({
       user_id: userId,
@@ -157,7 +422,6 @@ async function saveSkills(userId, skillsList) {
 
 async function saveLinks(userId, links) {
   const saved = [];
-
   if (!Array.isArray(links)) return saved;
 
   for (let link of links) {
@@ -177,7 +441,6 @@ async function saveLinks(userId, links) {
 
 async function saveCertificates(userId, list) {
   const saved = [];
-
   if (!Array.isArray(list)) return saved;
 
   for (let c of list) {
@@ -219,7 +482,6 @@ exports.extractResume = async (req, res) => {
     if (personalStatus === "not_found") {
       return res.status(400).json({ message: "Personal details not found" });
     }
-
 
     const savedEducation = await saveEducation(userId, extracted.education);
     const savedJobRole = await saveJobRole(userId, extracted.work_experience);

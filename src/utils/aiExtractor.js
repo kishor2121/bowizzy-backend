@@ -2,16 +2,43 @@ const OpenAI = require("openai");
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 async function extractResumeUsingAI(text) {
+
   const prompt = `
-Extract structured resume data **ONLY AS PURE JSON**.
-❗ DO NOT return markdown.
-❗ DO NOT return \`\`\`json or code blocks.
+Extract structured resume data ONLY AS PURE JSON.
+❗ NO markdown.
+❗ NO code blocks.
 ❗ Return ONLY valid JSON.
+
+VERY IMPORTANT EDUCATION RULES:
+- Always separate "degree" and "field_of_study".
+- If resume says “Bachelor of Engineering in X”, extract:
+    degree: "Bachelor's Degree"
+    field_of_study: "X"
+- If it says “B.E in X”, extract field_of_study: "X"
+- If it says “BTech in X”, extract field_of_study: "X"
+- If it says “Diploma in X”, extract:
+    degree: "Diploma"
+    field_of_study: "X"
+- NEVER leave field_of_study empty when “in” + branch exists.
+
+RESULT RULES:
+- If “CGPA: X/Y”, extract:
+    result_format: "CGPA"
+    result: "X"
+- If “CGPA X.Y”, extract:
+    result_format: "CGPA"
+    result: "X.Y"
+- If “Percentage: X”, extract:
+    result_format: "Percentage"
+    result: "X"
+- If “X%”, extract:
+    result_format: "Percentage"
+    result: "X"
 
 TEXT:
 ${text}
 
-Return JSON ONLY in this format:
+Return JSON EXACTLY in this structure:
 {
   "personal_details": {
     "first_name": "",
@@ -30,11 +57,14 @@ Return JSON ONLY in this format:
     {
       "education_type": "",
       "degree": "",
+      "field_of_study": "",
       "institution_name": "",
       "university_name": "",
       "start_year": "",
       "end_year": "",
-      "currently_pursuing": false
+      "currently_pursuing": false,
+      "result_format": "",
+      "result": ""
     }
   ],
   "work_experience": [
@@ -56,35 +86,33 @@ Return JSON ONLY in this format:
       "end_date": "",
       "currently_working": false
     }
-  ]
-}
+  ],
   "skills": [
-  {
-    "skill_name": "",
-    "skill_level": ""
-  }
-]
+    {
+      "skill_name": "",
+      "skill_level": ""
+    }
+  ],
   "links": [
-  {
-    "link_type": "",
-    "url": "",
-    "description": ""
-  }
-]
-"certificates": [
-  {
-    "certificate_type": "",
-    "certificate_title": "",
-    "domain": "",
-    "certificate_provided_by": "",
-    "date": "",
-    "description": "",
-    "file_url": "",
-    "file_type": ""
-  }
-]
-
-`;
+    {
+      "link_type": "",
+      "url": "",
+      "description": ""
+    }
+  ],
+  "certificates": [
+    {
+      "certificate_type": "",
+      "certificate_title": "",
+      "domain": "",
+      "certificate_provided_by": "",
+      "date": "",
+      "description": "",
+      "file_url": "",
+      "file_type": ""
+    }
+  ]
+}`;
 
   const response = await client.chat.completions.create({
     model: "gpt-4o-mini",
@@ -94,12 +122,10 @@ Return JSON ONLY in this format:
     ]
   });
 
-  // 🛑 FIX: Strip ```json or ``` from the response before parsing
-  let content = response.choices[0].message.content;
-
-  content = content.replace(/```json/g, "")
-                   .replace(/```/g, "")
-                   .trim();
+  let content = response.choices[0].message.content
+    .replace(/```json/g, "")
+    .replace(/```/g, "")
+    .trim();
 
   return JSON.parse(content);
 }
