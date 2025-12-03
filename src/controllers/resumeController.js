@@ -12,16 +12,26 @@ const Certificate = require("../models/Certificate");
 
 function normalizeEducationType(type) {
   if (!type) return "other";
+
   const t = type.toLowerCase();
 
   if (t.includes("sslc") || t.includes("10")) return "sslc";
+
   if (t.includes("puc") || t.includes("12")) return "puc";
 
+  if (t.includes("diploma")) return "puc";
+
   if (
-    t.includes("btech") || t.includes("b.e") || t.includes("be") ||
-    t.includes("bachelor") || t.includes("mtech") || t.includes("master") ||
-    t.includes("diploma") || t.includes("phd")
-  ) return "higher";
+    t.includes("btech") ||
+    t.includes("b.e") ||
+    t.includes("be") ||
+    t.includes("bachelor") ||
+    t.includes("mtech") ||
+    t.includes("master") ||
+    t.includes("phd")
+  ) {
+    return "higher";
+  }
 
   return "other";
 }
@@ -159,7 +169,6 @@ async function saveEducation(userId, list) {
   return saved;
 }
 
-
 function normalizeBoardType(board) {
   if (!board) return null;
 
@@ -264,7 +273,6 @@ function normalizeFieldOfStudy(text) {
 
   return clean.trim();
 }
-
 
 function normalizeResultFormat(text) {
   if (!text) return null;
@@ -448,6 +456,18 @@ async function saveSkills(userId, skillsList) {
   }
 }
 
+function normalizeLinkType(type) {
+  if (!type) return null;
+
+  const t = type.toLowerCase();
+
+  if (t.includes("linkedin")) return "linkedin";
+  if (t.includes("github")) return "github";
+  if (t.includes("portfolio") || t.includes("website")) return "portfolio";
+
+  return t;
+}
+
 async function saveLinks(userId, links) {
   const saved = [];
   if (!Array.isArray(links)) return saved;
@@ -455,7 +475,7 @@ async function saveLinks(userId, links) {
   for (let link of links) {
     const record = {
       user_id: userId,
-      link_type: link.link_type || null,
+      link_type: normalizeLinkType(link.link_type),
       url: link.url || null,
       description: link.description || null
     };
@@ -469,16 +489,19 @@ async function saveLinks(userId, links) {
 
 async function saveCertificates(userId, list) {
   const saved = [];
+
   if (!Array.isArray(list)) return saved;
 
   for (let c of list) {
     const record = {
       user_id: userId,
-      certificate_type: c.certificate_type || null,
+      certificate_type: c.certificate_type || "Award",
       certificate_title: c.certificate_title || null,
       domain: c.domain || null,
       certificate_provided_by: c.certificate_provided_by || null,
-      date: c.date || null,
+
+      date: monthToFullDate(formatYearMonth(c.date)),
+
       description: c.description || null,
       file_url: c.file_url || null,
       file_type: c.file_type || null

@@ -34,6 +34,15 @@ RESULT RULES:
 - If “X%”, extract:
     result_format: "Percentage"
     result: "X"
+    
+AWARDS RULE:
+- Anything under "Awards", "Achievements", "Recognitions" should be extracted as a certificate.
+- Extract:
+    certificate_type: "Award"
+    certificate_title: <full award name>
+    date: <award date> (convert to YYYY-MM format)
+- DO NOT miss any awards section.
+
 
 TEXT:
 ${text}
