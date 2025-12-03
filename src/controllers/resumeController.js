@@ -12,16 +12,26 @@ const Certificate = require("../models/Certificate");
 
 function normalizeEducationType(type) {
   if (!type) return "other";
+
   const t = type.toLowerCase();
 
   if (t.includes("sslc") || t.includes("10")) return "sslc";
+
   if (t.includes("puc") || t.includes("12")) return "puc";
 
+  if (t.includes("diploma")) return "puc";
+
   if (
-    t.includes("btech") || t.includes("b.e") || t.includes("be") ||
-    t.includes("bachelor") || t.includes("mtech") || t.includes("master") ||
-    t.includes("diploma") || t.includes("phd")
-  ) return "higher";
+    t.includes("btech") ||
+    t.includes("b.e") ||
+    t.includes("be") ||
+    t.includes("bachelor") ||
+    t.includes("mtech") ||
+    t.includes("master") ||
+    t.includes("phd")
+  ) {
+    return "higher";
+  }
 
   return "other";
 }
@@ -446,6 +456,18 @@ async function saveSkills(userId, skillsList) {
   }
 }
 
+function normalizeLinkType(type) {
+  if (!type) return null;
+
+  const t = type.toLowerCase();
+
+  if (t.includes("linkedin")) return "linkedin";
+  if (t.includes("github")) return "github";
+  if (t.includes("portfolio") || t.includes("website")) return "portfolio";
+
+  return t;
+}
+
 async function saveLinks(userId, links) {
   const saved = [];
   if (!Array.isArray(links)) return saved;
@@ -453,7 +475,7 @@ async function saveLinks(userId, links) {
   for (let link of links) {
     const record = {
       user_id: userId,
-      link_type: link.link_type || null,
+      link_type: normalizeLinkType(link.link_type),
       url: link.url || null,
       description: link.description || null
     };
