@@ -1,7 +1,4 @@
 exports.up = async function (knex) {
-  // Ensure btree_gist exists
-  await knex.raw(`CREATE EXTENSION IF NOT EXISTS btree_gist;`);
-
   // Ensure ENUM exists
   await knex.raw(`
     DO $$
@@ -44,25 +41,9 @@ exports.up = async function (knex) {
     STORED;
   `);
 
-  // Prevent overlapping schedules
-
-  await knex.raw(`
-    ALTER TABLE interview_schedules
-    ADD CONSTRAINT no_overlap_schedule_candidate
-    EXCLUDE USING GIST (
-      candidate_id WITH =,
-      ts_range WITH &&
-    );
-  `);
-
-  await knex.raw(`
-    ALTER TABLE interview_schedules
-    ADD CONSTRAINT no_overlap_schedule_interviewer
-    EXCLUDE USING GIST (
-      interviewer_id WITH =,
-      ts_range WITH &&
-    );
-  `);
+  // NOTE: DB-level exclusion constraints that prevented overlapping schedules
+  // have been intentionally removed. Overlap prevention should be enforced
+  // at the application level (advisory locks + checks).
 
   // Indexes
   await knex.raw(`
@@ -80,6 +61,7 @@ exports.down = async function (knex) {
   await knex.raw(`DROP INDEX IF EXISTS idx_interview_schedules_interviewer_start;`);
   await knex.raw(`DROP INDEX IF EXISTS idx_interview_schedules_candidate_start;`);
 
+  // Keep defensive drops for constraints if they exist (harmless)
   await knex.raw(`ALTER TABLE IF EXISTS interview_schedules DROP CONSTRAINT IF EXISTS no_overlap_schedule_interviewer;`);
   await knex.raw(`ALTER TABLE IF EXISTS interview_schedules DROP CONSTRAINT IF EXISTS no_overlap_schedule_candidate;`);
   await knex.raw(`ALTER TABLE IF EXISTS interview_schedules DROP COLUMN IF EXISTS ts_range;`);

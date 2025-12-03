@@ -1,7 +1,4 @@
 exports.up = async function (knex) {
-  // btree_gist for exclusion constraints
-  await knex.raw(`CREATE EXTENSION IF NOT EXISTS btree_gist;`);
-
   // Create shared ENUM type
   await knex.raw(`
     DO $$
@@ -50,7 +47,7 @@ exports.up = async function (knex) {
     table.check("start_time_utc < end_time_utc");
   });
 
-  // Generated range column
+  // Generated range column (keeps helpful range for app-level overlap checks)
   await knex.raw(`
     ALTER TABLE interview_slots
     ADD COLUMN ts_range tstzrange
@@ -58,15 +55,8 @@ exports.up = async function (knex) {
     STORED;
   `);
 
-  // Prevent overlapping slots for same candidate
-  await knex.raw(`
-    ALTER TABLE interview_slots
-    ADD CONSTRAINT no_overlap_slots_candidate
-    EXCLUDE USING GIST (
-      candidate_id WITH =,
-      ts_range WITH &&
-    );
-  `);
+  // NOTE: DB-level exclusion constraint that prevented overlapping slots for the same candidate
+  // has been intentionally removed. Overlap checks should be enforced at the application level.
 
   // Indexes
   await knex.raw(`
@@ -117,13 +107,16 @@ exports.up = async function (knex) {
 };
 
 exports.down = async function (knex) {
+  // Attempt to drop trigger/function (IF EXISTS used)
   await knex.raw(`DROP TRIGGER IF EXISTS trg_set_interview_code ON interview_slots;`);
   await knex.raw(`DROP FUNCTION IF EXISTS set_interview_code_from_prefix();`);
 
   await knex.raw(`DROP INDEX IF EXISTS idx_interview_slots_start_open;`);
   await knex.raw(`DROP INDEX IF EXISTS idx_interview_slots_candidate_start;`);
 
+  // If you previously had a DB constraint it would be dropped here; kept for safety with IF EXISTS
   await knex.raw(`ALTER TABLE IF EXISTS interview_slots DROP CONSTRAINT IF EXISTS no_overlap_slots_candidate;`);
+
   await knex.raw(`ALTER TABLE IF EXISTS interview_slots DROP COLUMN IF EXISTS ts_range;`);
 
   await knex.schema.dropTableIfExists("interview_slots");

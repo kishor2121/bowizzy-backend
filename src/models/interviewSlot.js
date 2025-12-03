@@ -5,7 +5,7 @@ Model.knex(db);
 
 class InterviewSlot extends Model {
   static get tableName() {
-    return "interview_slot";
+    return "interview_slots";
   }
 
   static get idColumn() {
