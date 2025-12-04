@@ -313,7 +313,8 @@ async function updatePersonalDetails(userId, pd) {
     address: pd.address || existing.address,
     city: pd.city || existing.city,
     state: pd.state || existing.state,
-    country: pd.country || existing.country
+    country: pd.country || existing.country,
+    nationality: pd.nationality || existing.nationality
   };
 
   await PersonalDetails.query().patch(updateData).where("user_id", userId);

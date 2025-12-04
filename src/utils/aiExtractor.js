@@ -43,6 +43,10 @@ AWARDS RULE:
     date: <award date> (convert to YYYY-MM format)
 - DO NOT miss any awards section.
 
+NATIONALITY RULE:
+- If resume contains “Nationality: Indian” or similar, extract it as:
+    nationality: "Indian"
+- If nationality is mentioned anywhere in text, ALWAYS include it in personal_details.
 
 TEXT:
 ${text}
@@ -58,6 +62,7 @@ Return JSON EXACTLY in this structure:
     "city": "",
     "state": "",
     "country": "",
+    "nationality": "",
     "date_of_birth": ""
   },
   "job_role": "",
