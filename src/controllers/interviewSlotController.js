@@ -113,10 +113,11 @@ exports.create = async (req, res) => {
   try {
     const user_id = req.user && req.user.user_id;
     const data = req.body || {};
+    const { mode } = req.query;
 
     if (!user_id) return res.status(401).json({ message: 'Unauthorized' });
 
-    if (!data.raw_date_string || !data.raw_time_string || !data.job_role || !data.interview_mode || !data.experience || !data.skills || !data.resume_url) {
+    if (!data.raw_date_string || !data.raw_time_string || !data.job_role || !mode || !data.experience || !data.skills) {
       return res.status(400).json({ message: 'Interview informations like date, time, job role, interview mode,.... are required' });
     }
 
@@ -174,10 +175,10 @@ exports.create = async (req, res) => {
         interview_code_prefix: interviewCodePrefix,
         candidate_id: user_id,
         job_role: data.job_role,
-        interview_mode: data.interview_mode,
+        interview_mode: mode,
         experience: data.experience,
         skills,
-        resume_url: data.resume_url,
+        resume_url: data.resume_url || null,
         start_time_utc,
         end_time_utc,
       };
@@ -194,6 +195,39 @@ exports.create = async (req, res) => {
     return res.status(500).json({ message: 'Error creating interview slot' });
   }
 };
+
+
+exports.updatePaymentInfo = async (req, res) => {
+  try {
+    const user_id = req.user.user_id;
+    const { slot_id } = req.params;
+
+    const updated = await InterviewSlot.query()
+      .patch({
+        is_payment_done: true,
+        updated_at: InterviewSlot.knex().raw("now()")
+      })
+      .where({
+        interview_slot_id: slot_id,
+        candidate_id: user_id
+      })
+      .returning('*');
+
+    // If successfully updates, returns array of updated object else undefined
+    const updatedRow = Array.isArray(updated) ? updated[0] : updated;
+
+    if (!updatedRow) {
+      return res.status(404).json({ message: "Interview slot not found" });
+    }
+
+    return res.status(200).json({ message: "Payment status updated successfully"});
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Error updating interview slot payment info" });
+  }
+};
+
 
 
 exports.getAll = async (req, res) => {
