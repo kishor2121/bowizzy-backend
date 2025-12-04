@@ -5,6 +5,7 @@ const controller = require("../controllers/interviewSlotController");
 
 
 router.post("/users/:user_id/mock-interview/interview-slot", auth, controller.create);
+router.put("/users/:user_id/mock-interview/interview-slot/:slot_id", auth, controller.updatePaymentInfo);
 router.get("/users/mock-interview/interview-slot", auth, controller.getAll);
 router.get("/users/:user_id/mock-interview/interview-slot", auth, controller.getByUser);
 router.get("/users/:user_id/mock-interview/interview-slot/:id", auth, controller.getById);
