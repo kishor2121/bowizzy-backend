@@ -7,6 +7,12 @@ const cors = require("cors");
 const morgan = require("morgan");
 const db = require("./db/knex");
 
+app.disable("etag");
+app.use((req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+});
+
 // Middlewares
 app.use(cors());
 app.use(express.json());
