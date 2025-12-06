@@ -1,0 +1,479 @@
+const InterviewSlot = require("../models/interviewSlot");
+const InterviewSchedule = require("../models/interviewSchedule");
+const BankDetails = require("../models/bankDetails");
+const User = require("../models/User");
+
+const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+
+// Checks for interview overlapping and open status of interview slot
+async function checkInterviewerConflictFull(trx, interviewerId, startTimeUtc, endTimeUtc) {
+  const startISO = dayjs(startTimeUtc).startOf('minute').toISOString();
+  const endISO = dayjs(endTimeUtc).startOf('minute').toISOString();
+
+  const isBlocking = (status) => String(status).toLowerCase() !== 'open';
+
+  // RANGE OVERLAP in interview_schedules
+  const scheduleOverlaps = await trx('interview_schedules')
+    .select('*')
+    .where('interviewer_id', interviewerId)
+    .andWhere(function () {
+      this.whereRaw('ts_range && tstzrange(?, ?, \'[)\')', [startISO, endISO]);
+    });
+
+  if (scheduleOverlaps && scheduleOverlaps.length > 0) {
+    const blockingRows = scheduleOverlaps.filter(r => isBlocking(r.interview_status));
+    if (blockingRows.length > 0) {
+      return { conflict: true, reason: 'schedule_overlap', rows: blockingRows };
+    }
+  }
+
+  // SAME-DAY + EXACT SAME START TIME (IST local day)
+  const localStart = dayjs(startTimeUtc).tz('Asia/Kolkata');
+  const dayStartUtcISO = localStart.startOf('day').utc().toISOString();
+  const dayEndUtcISO = localStart.endOf('day').utc().toISOString();
+  const startISOeq = dayjs(startTimeUtc).startOf('minute').toISOString();
+
+  const scheduleSameTime = await trx('interview_schedules')
+    .select('*')
+    .where('interviewer_id', interviewerId)
+    .andWhere('start_time_utc', startISOeq)
+    .andWhereBetween('start_time_utc', [dayStartUtcISO, dayEndUtcISO]);
+
+  if (scheduleSameTime && scheduleSameTime.length > 0) {
+    const blockingRows = scheduleSameTime.filter(r => isBlocking(r.interview_status));
+    if (blockingRows.length > 0) {
+      return { conflict: true, reason: 'schedule_same_day_time', rows: blockingRows };
+    }
+  }
+
+  return { conflict: false };
+}
+
+
+// Function to create interview schedule for a give slot
+exports.create = async (req, res) => {
+  try {
+    const interviewer_id = req.user && req.user.user_id;
+    if (!interviewer_id) return res.status(401).json({ message: 'Unauthorized' });
+
+    const { interview_slot_id } = req.body || {};
+    if (!interview_slot_id) return res.status(400).json({ message: 'Interview slot ID is required' });
+
+    const knex = InterviewSchedule.knex();
+
+    // Ensure interviewer exists and is verified
+    const userRow = await knex('users').select('is_verified').where({ user_id: interviewer_id }).first();
+    if (!userRow) return res.status(404).json({ message: 'Interviewer user not found' });
+    if (!userRow.is_verified) return res.status(403).json({ message: 'Interviewer not verified. Access denied' });
+
+    // Transaction: lock slot, validate status (only in interview_slots), check schedule conflicts, create schedule, update slot -> confirmed
+    const createdSchedule = await knex.transaction(async (trx) => {
+      // Lock the slot row to avoid concurrent confirms
+      const slotRow = await trx('interview_slots')
+        .where({ interview_slot_id })
+        .forUpdate()
+        .first();
+
+      if (!slotRow) {
+        const e = new Error('Interview slot not found');
+        e.status = 404;
+        throw e;
+      }
+
+      // Ensure slot is open (checked only in interview_slots)
+      if (String(slotRow.interview_status).toLowerCase() !== 'open') {
+        const e = new Error('Slot is not available (must be open)');
+        e.status = 400;
+        throw e;
+      }
+
+      // Run conflict checks against interview_schedules only
+      const conflict = await checkInterviewerConflictFull(trx, interviewer_id, slotRow.start_time_utc, slotRow.end_time_utc);
+      if (conflict.conflict) {
+        const e = new Error('Interviewer conflict: ' + conflict.reason);
+        e.status = 409;
+        e.rows = conflict.rows;
+        throw e;
+      }
+
+      // Build schedule payload using slot's start/end times
+      const schedulePayload = {
+        interview_slot_id,
+        interviewer_id,
+        candidate_id: slotRow.candidate_id,
+        interview_status: 'confirmed',
+        start_time_utc: slotRow.start_time_utc,
+        end_time_utc: slotRow.end_time_utc,
+        interview_mode: slotRow.interview_mode,
+        created_at: knex.raw('now()'),
+        updated_at: knex.raw('now()'),
+      };
+
+      // Insert schedule
+      const [insertedSchedule] = await trx('interview_schedules')
+        .insert(schedulePayload)
+        .returning('*');
+
+      if (!insertedSchedule) {
+        const e = new Error('Failed to create interview schedule');
+        e.status = 500;
+        throw e;
+      }
+
+      // Mark slot as confirmed (update only interview_slots)
+      const slotUpdateCount = await trx('interview_slots')
+        .where({ interview_slot_id })
+        .update({
+          interview_status: 'confirmed',
+          updated_at: knex.raw('now()'),
+        });
+
+      if (!slotUpdateCount) {
+        const e = new Error('Failed to update interview slot to confirmed');
+        e.status = 500;
+        throw e;
+      }
+
+      return insertedSchedule;
+    });
+
+    return res.status(201).json(createdSchedule);
+  } catch (err) {
+    if (err && err.status) {
+      // In prod you might avoid returning raw rows; keep it for debugging/dev only.
+      const payload = { message: err.message };
+      if (err.status === 409 && err.rows) payload.rows = err.rows;
+      return res.status(err.status).json(payload);
+    }
+    return res.status(500).json({ message: 'Error creating interview schedule' });
+  }
+};
+
+
+// Function to get one particular interview schedule details
+exports.getById = async (req, res) => {
+  try {
+    const user_id = req.user.user_id;
+    const { id } = req.params;
+
+    // Only verified users can access interview slots & schedules
+    const userVerificationInfo = await User.query()
+      .where({ user_id })
+      .select('is_verified')
+      .first();
+
+    if(!userVerificationInfo){
+      return res.status(404).json({ message: "Interviewer user not found" })
+    }
+
+    if(!userVerificationInfo.is_verified){
+      return res.status(401).json({ message: "Interviewer is not verified. Access denied." })
+    }
+
+    // Step 1: Get the interview schedule that belongs to this interviewer
+    const schedule = await InterviewSchedule.query()
+      .select("interview_slot_id")
+      .where({
+        interviewer_id: user_id,
+        interview_schedule_id: id
+      })
+      .first();
+
+    if (!schedule) {
+      return res.status(404).json({ message: "Interview schedule not found" });
+    }
+
+    // Step 2: Extract slot ID
+    const slotId = schedule.interview_slot_id;
+
+    // Step 3: Fetch complete interview slot row
+    const interviewSlot = await InterviewSlot.query()
+      .findById(slotId);
+
+    if (!interviewSlot) {
+      return res.status(404).json({ message: "Interview slot not found" });
+    }
+
+    return res.status(200).json(interviewSlot);
+
+  } catch (err) {
+    return res.status(500).json({ message: "Error fetching interview slot" });
+  }
+};
+
+
+// Function to get all the interview schedulings
+exports.getAll = async (req, res) => {
+  try {
+    const user_id = req.user.user_id;
+    const { mode } = req.query;
+
+    // Only verified users can access interview schedules
+    const userVerificationInfo = await User.query()
+      .where({ user_id })
+      .select('is_verified')
+      .first();
+
+    if(!userVerificationInfo){
+      return res.status(404).json({ message: "User not found" })
+    }
+
+    if(!userVerificationInfo.is_verified){
+      return res.status(401).json({ message: "User is not verified. Access denied." })
+    }
+
+    let list;
+    if(mode)
+    {
+      list = await InterviewSchedule.query()
+      .where({ interview_mode: mode })
+      .orderBy("start_time_utc", "asc");
+    }
+    else{
+      list = await InterviewSchedule.query()
+      .where({ interview_status: "open" })
+      .orderBy("start_time_utc", "asc");
+    }
+    
+    return res.status(200).json(list);
+
+  } catch (err) {
+    return res.status(500).json({ message: "Error fetching interview Schedulings" });
+  }
+};
+
+exports.getByUser = async (req, res) => {
+  try {
+    const user_id = req.user.user_id;
+    const { mode } = req.query;
+
+    // Only verified users can accept a interview slot
+    const userVerificationInfo = await User.query()
+      .where({ user_id })
+      .select('is_verified')
+      .first();
+
+    if(!userVerificationInfo){
+      return res.status(404).json({ message: "User not found" })
+    }
+
+    if(!userVerificationInfo.is_verified){
+      return res.status(401).json({ message: "User is not verified. Access denied." })
+    }
+
+    let list;
+
+    if(mode){
+      list = await InterviewSchedule.query()
+      .where({ interviewer_id: user_id,
+        interview_mode: mode
+       })
+      .orderBy("start_time_utc", "asc");
+    }
+    else{
+      list = await InterviewSchedule.query()
+      .where({ interviewer_id: user_id })
+      .orderBy("start_time_utc", "asc");
+    }
+
+    return res.status(200).json(list);
+
+  } catch (err) {
+    return res.status(500).json({ message: "Error fetching interview schedules" });
+  }
+};
+
+
+// Function to cancel the interview schedule by interviewer
+exports.cancel = async (req, res) => {
+  try {
+    const user_id = req.user.user_id;
+    const { id } = req.params;
+
+    // Only verified users can accept a interview slot
+    const userVerificationInfo = await User.query()
+      .where({ user_id })
+      .select('is_verified')
+      .first();
+
+    if(!userVerificationInfo){
+      return res.status(404).json({ message: "User not found" })
+    }
+
+    if(!userVerificationInfo.is_verified){
+      return res.status(401).json({ message: "User is not verified. Access denied." })
+    }
+
+    // Find schedule and ensure it belongs to this interviewer
+    const schedule = await InterviewSchedule.query()
+      .findOne({ interviewer_id: user_id, interview_schedule_id: id });
+
+    if (!schedule) {
+      return res.status(404).json({ message: "Interview schedule not found" });
+    }
+
+    // Only confirmed schedules can be cancelled
+    if (String(schedule.interview_status) !== "confirmed") {
+      return res.status(400).json({
+        message: "Only schedules with status 'confirmed' can be cancelled"
+      });
+    }
+
+    const knex = InterviewSchedule.knex();
+
+    let updatedSlot;
+
+    // Transaction to update both schedule and slot atomically
+    await knex.transaction(async (trx) => {
+      // Cancel the schedule
+      const updatedSchedules = await trx("interview_schedules")
+        .where({
+          interview_schedule_id: id,
+          interviewer_id: user_id
+        })
+        .update({
+          interview_status: "cancelled",
+          updated_at: knex.raw("now()")
+        });
+
+      if (!updatedSchedules) {
+        throw new Error("Failed to update interview_schedule");
+      }
+
+      // Update the related slot:
+      // - set status back to 'open'
+      // - set priority to 'high'
+      // - update priority_updated and updated_at timestamps
+      updatedSlot = await trx("interview_slots")
+        .where({ interview_slot_id: schedule.interview_slot_id })
+        .update({
+          interview_status: "open",
+          priority: "high",
+          priority_updated: knex.raw("now()"),
+          updated_at: knex.raw("now()")
+        });
+
+      if (!updatedSlot) {
+        throw new Error("Failed to update interview_slot");
+      }
+    });
+
+    return res.status(200).json({ message: "Interview schedule cancelled successfully", updatedSlot: updatedSlot });
+  } catch (err) {
+    return res.status(500).json({ message: "Error cancelling interview schedule" });
+  }
+};
+
+
+exports.createBankAccountInfo = async (req, res) => {
+  try{
+    const user_id = req.user.user_id;
+    const data = req.body;
+
+    if( !data.bank_name || !data.account_holder_name || !data.account_number || !data.ifsc_code || !data.account_type || !data.branch_name )
+    {
+      return res.status(400).json({ message: "Bank name, and other account related info like account number, IFSC code,.... are required" })
+    }
+
+    const record = await BankDetails.query().insert({
+      ...data,
+      user_id
+    });
+
+    return res.status(201).json(record)
+
+  }catch(err){
+    return res.status(500).json({ message: "Error creating bank details" })
+  }
+}
+
+exports.getBankAccountDetails = async (req, res) => {
+  try{
+    const user_id = req.user.user_id;
+    const { bank_id } = req.params;
+
+    const bankInfo = await BankDetails.query()
+      .where({ user_id, bank_id })
+      .first();
+
+    if(!bankInfo){
+      return res.status(404).json({ message: "Bank account info not found" })
+    }
+
+    return res.status(200).json(bankInfo)
+
+  }catch(err){
+    return res.status(500).json({ message: "Error fetching bank account info" })
+  }
+}
+
+exports.updateBankAccountDetails = async (req, res) => {
+  try{
+    const user_id = req.user.user_id;
+    const data = req.body;
+    const { bank_id } = req.params;
+
+    const updatedAccountInfo = await BankDetails.query()
+        .where({ user_id, bank_id })
+        .update({
+          ...data,
+          updated_at: BankDetails.knex().raw("now()")})
+          .returning("*")
+          .first();
+
+    if(!updatedAccountInfo){
+      return res.status(404).json({ message: "Bank account info not found" })
+    }
+
+  return res.status(200).json(updatedAccountInfo)
+
+  }catch(err){
+    return res.status(500).json({ message: "Error updating bank account info" })
+  }
+}
+
+exports.deleteBankAccountDetails = async (req, res) => {
+  try{
+    const user_id = req.user.user_id;
+    const { bank_id } = req.params;
+
+    const deleted = await BankDetails.query()
+      .where({ user_id, bank_id })
+      .delete();
+
+    if (!deleted) {
+      return res.status(404).json({ message: "Bank account info not found" });
+    }
+
+    return res.status(200).json({ message: "Deleted successfully" });
+
+  }catch(err){
+    return res.status(500).json({ message: "Error deleting bank account info" })
+  }
+}
+
+
+exports.getUserVerificationStatus = async (req, res) => {
+  try{
+    const user_id = req.user.user_id;
+
+    const userVerificationInfo = await User.query()
+      .where({ user_id })
+      .select('is_verified')
+      .first();
+
+    if(!userVerificationInfo){
+      return res.status(404).json({ message: "User not found" })
+    }
+
+    return res.status(200).json(userVerificationInfo);
+    
+  }catch(err){
+    return res.status(500).json({ message: "Error fetching user verification info" });
+  }
+}

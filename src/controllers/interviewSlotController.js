@@ -9,24 +9,24 @@ dayjs.extend(timezone);
 // statuses considered blocking
 const ACTIVE_STATUSES = ['open', 'confirmed'];
 
-const DOMAIN_MAP = {
-  "python": 'PY',
-  "java": 'JV',
-  "node": 'ND',
-  ".net": 'DN',
-};
-
 const MONTH_MAP = {
   1: 'JN', 2: 'FB', 3: 'MR', 4: 'AP', 5: 'MY', 6: 'JU',
   7: 'JY', 8: 'AG', 9: 'ST', 10: 'OT', 11: 'NV', 12: 'DC',
 };
 
-const generateInterviewCodePrefix = (domain, date) =>
+const generateInterviewCodePrefix = (jobRole, date) =>
 {
   const [year, month, day] = date.split('-');
-  const domain_code = DOMAIN_MAP[domain];
-  const month_code = MONTH_MAP[Number(month)];
-  return `${domain_code}${year}${month_code}${day}`
+
+    let rolePrefix = '';
+    const roleWords = jobRole.split(' ');
+
+    for (let word of roleWords) {
+        rolePrefix += word[0].toUpperCase();
+    }
+
+    const monthCode = MONTH_MAP[Number(month)];
+    return `${rolePrefix}${year}${monthCode}${day}`;
 }
 
 // Returns { conflict: true, reason, rows } or { conflict: false }
@@ -42,7 +42,7 @@ async function checkCandidateConflictFull(trx, candidateId, startTimeUtc, endTim
     return rows.some(r => ACTIVE_STATUSES.includes(String(r.interview_status)));
   };
 
-  // 1) OVERLAP: any candidate-created slot that overlaps the proposed range
+  // OVERLAP: any candidate-created slot that overlaps the proposed range
   // Query ALL overlapping rows (no status filter), then decide by status
   const slotOverlaps = await trx('interview_slots')
     .select('*')
@@ -58,7 +58,7 @@ async function checkCandidateConflictFull(trx, candidateId, startTimeUtc, endTim
     // else all overlapping slots are non-blocking (cancelled/expired/completed) -> allow
   }
 
-  // 2) OVERLAP: any schedule that overlaps the proposed range
+  // OVERLAP: any schedule that overlaps the proposed range
   const scheduleOverlaps = await trx('interview_schedules')
     .select('*')
     .where('candidate_id', candidateId)
@@ -73,7 +73,7 @@ async function checkCandidateConflictFull(trx, candidateId, startTimeUtc, endTim
     // else all overlapping schedules are non-blocking -> allow
   }
 
-  // 3) SAME-DAY + SAME-START-TIME (IST local day)
+  // SAME-DAY + SAME-START-TIME (IST local day)
   const localStart = dayjs(startTimeUtc).tz('Asia/Kolkata');
   const dayStartUtcISO = localStart.startOf('day').utc().toISOString();
   const dayEndUtcISO = localStart.endOf('day').utc().toISOString();
@@ -150,10 +150,10 @@ exports.create = async (req, res) => {
       }
     }
 
-    const domain = (data.job_role || '').split(' ')[0].toLowerCase();
+    const jobrole = data.job_role;
 
     // generate interviewCodePrefix from domain + date
-    const interviewCodePrefix = generateInterviewCodePrefix(domain, data.raw_date_string);
+    const interviewCodePrefix = generateInterviewCodePrefix(jobrole, data.raw_date_string);
 
     const knex = InterviewSlot.knex();
 
@@ -220,10 +220,9 @@ exports.updatePaymentInfo = async (req, res) => {
       return res.status(404).json({ message: "Interview slot not found" });
     }
 
-    return res.status(200).json({ message: "Payment status updated successfully"});
+    return res.status(200).json( updatedRow );
 
   } catch (err) {
-    console.error(err);
     return res.status(500).json({ message: "Error updating interview slot payment info" });
   }
 };
@@ -235,10 +234,10 @@ exports.getAll = async (req, res) => {
     const list = await InterviewSlot.query()
       .orderBy("start_time_utc", "asc");
 
-    res.json(list);
+    return res.status(200).json(list);
 
   } catch (err) {
-    res.status(500).json({ message: "Error fetching interview slots" });
+    return res.status(500).json({ message: "Error fetching interview slots" });
   }
 };
 
@@ -250,10 +249,10 @@ exports.getByUser = async (req, res) => {
       .where({ candidate_id: user_id })
       .orderBy("start_time_utc", "asc");
 
-    res.json(list);
+    return res.status(200).json(list);
 
   } catch (err) {
-    res.status(500).json({ message: "Error fetching interview slots" });
+    return res.status(500).json({ message: "Error fetching interview slots" });
   }
 };
 
@@ -272,10 +271,10 @@ exports.getByUser = async (req, res) => {
       return res.status(404).json({ message: "Interview slot not found" });
     }
 
-    res.json(record);
+    return res.status(200).json(record);
 
   } catch (err) {
-    res.status(500).json({ message: "Error fetching interview slot" });
+    return res.status(500).json({ message: "Error fetching interview slot" });
   }
 };
 
@@ -297,7 +296,7 @@ exports.cancel = async (req, res) => {
     const status = String(slot.interview_status);
 
     if (status === "open") {
-      await InterviewSlot.query()
+      const updated_slot = await InterviewSlot.query()
         .patch({
           interview_status: "cancelled",
           updated_at: knex.raw("now()")
@@ -307,13 +306,16 @@ exports.cancel = async (req, res) => {
           candidate_id: user_id
         });
 
-      return res.json({ message: "Cancelled successfully" });
+      return res.status(200).json({ message: "Interview got cancelled successfully", 
+        updated_slot: updated_slot });
     }
 
     else if (status === "confirmed") {
+      let updated_slot;
+      let updated_schedule;
       await knex.transaction(async (trx) => {
         // Cancel in interview_slots
-        await trx("interview_slots")
+        updated_slot = await trx("interview_slots")
           .where({
             interview_slot_id: slot.interview_slot_id,
             candidate_id: user_id
@@ -324,7 +326,7 @@ exports.cancel = async (req, res) => {
           });
 
         // Cancel in interview_schedules
-        await trx("interview_schedules")
+        updated_schedule = await trx("interview_schedules")
           .where({
             interview_slot_id: slot.interview_slot_id,
             candidate_id: user_id
@@ -335,7 +337,9 @@ exports.cancel = async (req, res) => {
           });
       });
 
-      return res.json({ message: "Cancelled successfully" });
+      return res.status(200).json({ message: "Interview got cancelled successfully",
+        Updated_interview_slot: updated_slot, 
+        Updated_interview_schedule: updated_schedule });
     }
 
     else {
