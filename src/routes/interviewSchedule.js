@@ -10,6 +10,7 @@ router.get("/users/:user_id/mock-interview/interview-schedule/user-verification"
 // Iinterview scheduling related APIs
 router.post("/users/:user_id/mock-interview/interview-schedule", auth, controller.create);
 router.get("/users/mock-interview/interview-schedule", auth, controller.getAll);
+router.get("/users/mock-interview/interview-slots", auth, controller.getInterviewSlots);
 router.get("/users/:user_id/mock-interview/interview-schedule", auth, controller.getByUser);
 router.get("/users/:user_id/mock-interview/interview-schedule/:id", auth, controller.getById);
 router.put("/users/:user_id/mock-interview/interview-schedule/:id", auth, controller.cancel);

@@ -477,3 +477,29 @@ exports.getUserVerificationStatus = async (req, res) => {
     return res.status(500).json({ message: "Error fetching user verification info" });
   }
 }
+
+
+// Function to get the interview slots
+exports.getInterviewSlots = async (req, res) => {
+  try {
+    const { status } = req.query;
+
+    let list;
+
+    if(status){
+      list = await InterviewSlot.query()
+      .where({ interview_status: status.toLowerCase() })
+      .orderBy("start_time_utc", "asc");
+    }
+    else{
+      list = await InterviewSlot.query()
+      .where({ interview_status: "open"})
+      .orderBy("start_time_utc", "asc");
+    }
+
+    return res.status(200).json(list);
+
+  } catch (err) {
+    return res.status(500).json({ message: "Error fetching interview slots" });
+  }
+};
