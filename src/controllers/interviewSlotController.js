@@ -223,7 +223,6 @@ exports.updatePaymentInfo = async (req, res) => {
     return res.status(200).json( updatedRow );
 
   } catch (err) {
-    console.error(err);
     return res.status(500).json({ message: "Error updating interview slot payment info" });
   }
 };
