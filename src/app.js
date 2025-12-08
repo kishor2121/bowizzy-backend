@@ -35,6 +35,8 @@ const interviewScheduleRouter = require("./routes/interviewSchedule");
 const technicalSummaryRouter = require("./routes/technicalSummary");
 const userSubscriptionRouter = require("./routes/userSubscription");
 const resumeRouter = require("./routes/resume");
+const candidateReviewRouter = require("./routes/candidateReview");
+const interviewerReviewRouter = require("./routes/interviewerReview");
 
 app.use("/auth", authRouter);
 app.use("/", personalDetailsRouter);
@@ -52,6 +54,8 @@ app.use("/", interviewScheduleRouter);
 app.use("/", technicalSummaryRouter);
 app.use("/", userSubscriptionRouter);
 app.use("/", resumeRouter);
+app.use("/", candidateReviewRouter);
+app.use("/", interviewerReviewRouter);
 
 app.get("/", (req, res) => {
   res.send("Node backend is working!");

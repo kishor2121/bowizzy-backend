@@ -2,6 +2,7 @@ const InterviewSlot = require("../models/interviewSlot");
 const InterviewSchedule = require("../models/interviewSchedule");
 const BankDetails = require("../models/bankDetails");
 const User = require("../models/User");
+const SaveSlot = require("../models/saveSlot");
 
 const dayjs = require('dayjs');
 const utc = require('dayjs/plugin/utc');
@@ -67,7 +68,7 @@ exports.create = async (req, res) => {
     const knex = InterviewSchedule.knex();
 
     // Ensure interviewer exists and is verified
-    const userRow = await knex('users').select('is_verified').where({ user_id: interviewer_id }).first();
+    const userRow = await User.query().select('is_verified').where({ user_id: interviewer_id }).first();
     if (!userRow) return res.status(404).json({ message: 'Interviewer user not found' });
     if (!userRow.is_verified) return res.status(403).json({ message: 'Interviewer not verified. Access denied' });
 
@@ -143,7 +144,7 @@ exports.create = async (req, res) => {
     });
 
     return res.status(201).json(createdSchedule);
-  } catch (err) {
+  } catch(err) {
     if (err && err.status) {
       // In prod you might avoid returning raw rows; keep it for debugging/dev only.
       const payload = { message: err.message };
@@ -201,7 +202,7 @@ exports.getById = async (req, res) => {
 
     return res.status(200).json(interviewSlot);
 
-  } catch (err) {
+  } catch(err) {
     return res.status(500).json({ message: "Error fetching interview slot" });
   }
 };
@@ -242,7 +243,7 @@ exports.getAll = async (req, res) => {
     
     return res.status(200).json(list);
 
-  } catch (err) {
+  } catch(err) {
     return res.status(500).json({ message: "Error fetching interview Schedulings" });
   }
 };
@@ -283,7 +284,7 @@ exports.getByUser = async (req, res) => {
 
     return res.status(200).json(list);
 
-  } catch (err) {
+  } catch(err) {
     return res.status(500).json({ message: "Error fetching interview schedules" });
   }
 };
@@ -364,7 +365,7 @@ exports.cancel = async (req, res) => {
     });
 
     return res.status(200).json({ message: "Interview schedule cancelled successfully", updatedSlot: updatedSlot });
-  } catch (err) {
+  } catch(err) {
     return res.status(500).json({ message: "Error cancelling interview schedule" });
   }
 };
@@ -499,7 +500,157 @@ exports.getInterviewSlots = async (req, res) => {
 
     return res.status(200).json(list);
 
-  } catch (err) {
+  } catch(err) {
     return res.status(500).json({ message: "Error fetching interview slots" });
   }
 };
+
+
+exports.getCount = async (req, res) => {
+  try{
+    const candidate_id = req.user.user_id;
+
+    const count = await InterviewSchedule.query()
+      .where({ candidate_id })
+      .andWhere({ interview_status: "completed" })
+      .resultSize();
+
+    return res.status(200).json({ completed_interviews: count });
+  }catch(err){
+    return res.status(500).json({ message: "Error counting completed interviews" });
+  }
+}
+
+exports.saveSlot = async (req, res) => {
+  try{
+    const interviewer_id = req.user.user_id;
+    const { interview_slot_id, interview_priority, candidate_id } = req.body;
+
+    // Ensure interviewer exists and is verified
+    const userRow = await User.query().select('is_verified').where({ user_id: interviewer_id }).first();
+    if (!userRow) return res.status(404).json({ message: 'Interviewer user not found' });
+    if (!userRow.is_verified) return res.status(403).json({ message: 'Interviewer not verified. Access denied' });
+
+    if(!interview_slot_id || !candidate_id || !interview_priority)
+    {
+      return res.status(400).json({ message: "Interview slot ID, candidate ID and priority are required" })
+    }
+
+    const slotInfo = await InterviewSlot.query()
+      .select("interview_status")
+      .where({ candidate_id })
+      .first();
+
+    if (!slotInfo) {
+      return res.status(404).json({ message: "Interview slot not found" });
+    }
+
+    if(slotInfo.interview_status !== "open")
+    {
+      return res.status(409).json({ message: "Interview is already committed by other interviewer" })
+    }
+
+    const savedSlotRecord = await SaveSlot.query()
+      .where({ interviewer_id })
+      .andWhere({ interview_slot_id }).first();
+
+    if(savedSlotRecord){
+      return res.status(409).json({ message: "This interview slot is already saved by the user" })
+    }
+
+    const record = await SaveSlot.query().insert({
+      interviewer_id,
+      interview_slot_id,
+      interview_priority
+    });
+
+    return res.status(200).json(record);
+
+
+  }catch(err){
+    return res.status(500).json({ message: "Error saving interview slot" });
+  }
+}
+
+
+exports.removeSavedSlot = async (req, res) => {
+  try{
+    const interviewer_id = req.user.user_id;
+    const { saved_slot_id } = req.params
+
+    // Ensure interviewer exists and is verified
+    const userRow = await User.query().select('is_verified').where({ user_id: interviewer_id }).first();
+    if (!userRow) return res.status(404).json({ message: 'Interviewer user not found' });
+    if (!userRow.is_verified) return res.status(403).json({ message: 'Interviewer not verified. Access denied' });
+
+    if(!saved_slot_id){
+      return res.status(400).json({ message: "Saved slot ID is required" })
+    }
+
+    const deleted = await SaveSlot.query()
+      .where({ saved_slot_id, interviewer_id })
+      .delete();
+
+    if (!deleted) {
+      return res.status(404).json({ message: "Saved slot info not found" });
+    }
+
+    return res.status(200).json({ message: "Removed successfully" });    
+
+  }catch(err){
+    return res.status(500).json({ message: "Error Removing saved slot" })
+  }
+}
+
+
+exports.getSavedSlotsByUser = async (req, res) => {
+  try{
+    const interviewer_id = req.user.user_id;
+
+    // Ensure interviewer exists and is verified
+    const userRow = await User.query().select('is_verified').where({ user_id: interviewer_id }).first();
+    if (!userRow) return res.status(404).json({ message: 'Interviewer user not found' });
+    if (!userRow.is_verified) return res.status(403).json({ message: 'Interviewer not verified. Access denied' });
+
+    const list = await SaveSlot.query()
+      .where({ interviewer_id });
+
+    return res.status(200).json(list);
+
+  }catch(err){
+    return res.status(200).json({ message: "Error fetching saved slots" })
+  }
+}
+
+
+exports.getSavedSlotById = async (req, res) => {
+  try{
+    const interviewer_id = req.user.user_id;
+    const { saved_slot_id } = req.params;
+
+    // Ensure interviewer exists and is verified
+    const userRow = await User.query().select('is_verified').where({ user_id: interviewer_id }).first();
+    if (!userRow) return res.status(404).json({ message: 'Interviewer user not found' });
+    if (!userRow.is_verified) return res.status(403).json({ message: 'Interviewer not verified. Access denied' });
+
+    const slotInfo = await SaveSlot.query()
+      .select("interview_slot_id")
+      .where({ interviewer_id, saved_slot_id })
+      .first();
+
+    if (!slotInfo) {
+      return res.status(404).json({ message: "Interview slot not found" });
+    }
+
+    const interview_slot_id = slotInfo.interview_slot_id;
+
+    const scheduleInfo = await InterviewSlot.query()
+      .where({ interview_slot_id })
+      .first();
+
+    return res.status(200).json(scheduleInfo)
+
+  }catch(err){
+    return res.status(500).json({ message: "Error fetching interview schedule info" })
+  }
+}

@@ -7,6 +7,17 @@ const controller = require("../controllers/interviewScheduleController");
 router.get("/users/:user_id/mock-interview/interview-schedule/user-verification", auth, controller.getUserVerificationStatus);
 
 
+// API to get the count of completed interviews
+router.get("/users/:user_id/mock-interview/interview-schedule/count-completed-interviews", auth, controller.getCount);
+
+
+// API related to saving interview slot
+router.post("/users/:user_id/mock-interview/interview-schedule/save-interview-slot", auth, controller.saveSlot);
+router.delete("/users/:user_id/mock-interview/interview-schedule/remove-interview-slot/:saved_slot_id", auth, controller.removeSavedSlot);
+router.get("/users/:user_id/mock-interview/interview-schedule/saved-interview-slots", auth, controller.getSavedSlotsByUser);
+router.get("/users/:user_id/mock-interview/interview-schedule/saved-interview-slot/:saved_slot_id", auth, controller.getSavedSlotById);
+
+
 // Iinterview scheduling related APIs
 router.post("/users/:user_id/mock-interview/interview-schedule", auth, controller.create);
 router.get("/users/mock-interview/interview-schedule", auth, controller.getAll);
