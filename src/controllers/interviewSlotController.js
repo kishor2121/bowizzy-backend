@@ -296,18 +296,29 @@ exports.cancel = async (req, res) => {
     const status = String(slot.interview_status);
 
     if (status === "open") {
-      const updated_slot = await InterviewSlot.query()
-        .patch({
-          interview_status: "cancelled",
-          updated_at: knex.raw("now()")
-        })
-        .where({
-          interview_slot_id: slot.interview_slot_id,
-          candidate_id: user_id
-        });
+      let updated_slot;
+      await knex.transaction(async (trx) => {
+        // Cancel in interview_slot
+        updated_slot = await trx("interview_slots")
+          .where({
+            interview_slot_id: slot.interview_slot_id,
+            candidate_id: user_id
+          })
+          .update({
+            interview_status: "cancelled",
+            updated_at: knex.raw("now()")
+          });
 
-      return res.status(200).json({ message: "Interview got cancelled successfully", 
-        updated_slot: updated_slot });
+        // Remove all saved_slots entries for this slot
+        await trx("saved_slots")
+          .where({ interview_slot_id: slot.interview_slot_id })
+          .del();
+      });
+
+      return res.status(200).json({
+        message: "Interview got cancelled successfully",
+        updated_slot: updated_slot
+      });
     }
 
     else if (status === "confirmed") {
