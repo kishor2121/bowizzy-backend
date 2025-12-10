@@ -139,6 +139,11 @@ exports.create = async (req, res) => {
         e.status = 500;
         throw e;
       }
+      
+      // Removing all the saved slot entries for the current interview slot.
+      await trx('saved_slots')
+      .where({ interview_slot_id })
+      .del();
 
       return insertedSchedule;
     });
