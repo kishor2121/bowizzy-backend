@@ -2,13 +2,12 @@ const UserSubscription = require("../models/UserSubscription");
 
 exports.createOrUpdateSubscription = async (req, res) => {
   try {
-    const user_id = req.user.user_id;
+    const user_id = req.params.user_id;
     const { plan_type, end_date } = req.body;
 
     let existing = await UserSubscription.query().findOne({ user_id });
 
     if (existing) {
-      // UPDATE
       const updated = await UserSubscription
         .query()
         .patchAndFetchById(existing.subscription_id, {
@@ -21,7 +20,6 @@ exports.createOrUpdateSubscription = async (req, res) => {
       return res.json(updated);
     }
 
-    // CREATE NEW
     const created = await UserSubscription.query().insert({
       user_id,
       plan_type,
@@ -38,9 +36,50 @@ exports.createOrUpdateSubscription = async (req, res) => {
   }
 };
 
+exports.updateSubscription = async (req, res) => {
+  try {
+    const user_id = req.params.user_id;
+    const { plan_type, end_date, status } = req.body;
+
+    let existing = await UserSubscription.query().findOne({ user_id });
+
+    if (!existing) {
+      const created = await UserSubscription.query().insert({
+        user_id,
+        plan_type,
+        start_date: new Date(),
+        end_date,
+        status: status || "active"
+      });
+
+      return res.status(201).json({
+        message: "Subscription created",
+        data: created
+      });
+    }
+
+    const updated = await UserSubscription
+      .query()
+      .patchAndFetchById(existing.subscription_id, {
+        plan_type,
+        end_date,
+        status
+      });
+
+    res.json({
+      message: "Subscription updated",
+      data: updated
+    });
+
+  } catch (err) {
+    console.log("Update subscription error:", err);
+    res.status(500).json({ message: "Failed to update subscription" });
+  }
+};
+
 exports.getSubscription = async (req, res) => {
   try {
-    const user_id = req.user.user_id;
+    const user_id = req.params.user_id;
     const record = await UserSubscription.query().findOne({ user_id });
 
     if (!record) {

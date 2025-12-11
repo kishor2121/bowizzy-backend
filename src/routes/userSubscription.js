@@ -5,5 +5,6 @@ const controller = require("../controllers/userSubscriptionController");
 
 router.get("/users/:user_id/subscription", auth, controller.getSubscription);
 router.post("/users/:user_id/subscription", auth, controller.createOrUpdateSubscription);
+router.put("/users/:user_id/subscription", auth, controller.updateSubscription);
 
 module.exports = router;
