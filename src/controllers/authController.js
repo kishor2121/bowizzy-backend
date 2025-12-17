@@ -19,7 +19,8 @@ exports.authHandler = async (req, res) => {
         last_name,
         phone_number,
         gender,
-        date_of_birth
+        date_of_birth,
+        linkedin_url
       } = req.body;
 
       const requiredFields = ["email", "password", "first_name", "last_name", "phone_number"];
@@ -63,7 +64,8 @@ exports.authHandler = async (req, res) => {
         email,
         mobile_number: phone_number,
         gender: gender || "",
-        date_of_birth: date_of_birth || null
+        date_of_birth: date_of_birth || null,
+         linkedin_url: linkedin_url || null 
       });
 
       await UserSubscription.query().insert({
