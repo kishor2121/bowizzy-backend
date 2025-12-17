@@ -13,7 +13,8 @@ exports.create = async (req, res) => {
     if (Array.isArray(data.templates)) {
       const payload = data.templates.map(item => ({
         template_name: item.template_name,
-        template_code: item.template_code,   // renamed
+        template_code: item.template_code,
+        template_id: item.template_id,
         thumbnail_url: item.thumbnail_url,
         template_file_url: item.template_file_url,
         user_id
