@@ -10,6 +10,9 @@ router.get("/users/:user_id/mock-interview/interview-schedule/user-verification"
 // API to get the count of completed interviews
 router.get("/users/:user_id/mock-interview/interview-schedule/count-completed-interviews", auth, controller.getCount);
 
+// API to get the next upcoming interview
+router.get("/users/:user_id/mock-interview/interview-schedule/next-interviews", auth, controller.getNextInterview);
+
 
 // API related to saving interview slot
 router.post("/users/:user_id/mock-interview/interview-schedule/save-interview-slot", auth, controller.saveSlot);
