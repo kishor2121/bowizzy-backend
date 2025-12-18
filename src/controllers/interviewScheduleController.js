@@ -659,3 +659,26 @@ exports.getSavedSlotById = async (req, res) => {
     return res.status(500).json({ message: "Error fetching interview schedule info" })
   }
 }
+
+
+exports.getNextInterview = async (req, res) => {
+  try{
+    const candidate_id = req.user.user_id;
+
+    const nextInterviewSchedule = await InterviewSchedule.query()
+      .where('candidate_id', candidate_id)
+      .andWhere('interview_status', 'confirmed')
+      .andWhere('start_time_utc', '>=', InterviewSchedule.raw('now()'))
+      .orderBy('start_time_utc', 'asc')
+      .first();
+
+    if(!nextInterviewSchedule){
+      return res.status(404).json({ message: "Interview schedule not found" })
+      }
+    
+      return res.status(200).json(nextInterviewSchedule);
+
+  }catch(err){
+    return res.status(500).json({ message: "Error fetching next interview schedule" });
+  }
+}
