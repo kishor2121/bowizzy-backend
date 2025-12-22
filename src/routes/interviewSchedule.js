@@ -32,6 +32,7 @@ router.put("/users/:user_id/mock-interview/interview-schedule/:id", auth, contro
 
 // Bank account info related APIs used while user verification
 router.post("/users/:user_id/verification/bank-details", auth, controller.createBankAccountInfo);
+router.get("/users/:user_id/verification/bank-details", auth, controller.getAllBankInfo);
 router.get("/users/:user_id/verification/bank-details/:bank_id", auth, controller.getBankAccountDetails);
 router.put("/users/:user_id/verification/bank-details/:bank_id", auth, controller.updateBankAccountDetails);
 router.delete("/users/:user_id/verification/bank-details/:bank_id", auth, controller.deleteBankAccountDetails);

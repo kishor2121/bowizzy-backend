@@ -398,6 +398,22 @@ exports.createBankAccountInfo = async (req, res) => {
   }
 }
 
+exports.getAllBankInfo = async (req, res) => {
+  try {
+    const bankInfo = await BankDetails.query();
+
+    if (bankInfo.length === 0) {
+      return res.status(404).json({ message: "No bank account info found" });
+    }
+
+    return res.status(200).json(bankInfo);
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Error fetching bank account info" });
+  }
+};
+
 exports.getBankAccountDetails = async (req, res) => {
   try{
     const user_id = req.user.user_id;
