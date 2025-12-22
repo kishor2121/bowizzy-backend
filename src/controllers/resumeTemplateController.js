@@ -27,6 +27,7 @@ exports.create = async (req, res) => {
     const record = await ResumeTemplate.query().insert({
       template_name: data.template_name,
       template_code: data.template_code,
+      template_id: item.template_id,
       thumbnail_url: data.thumbnail_url,
       template_file_url: data.template_file_url,
       user_id
@@ -85,6 +86,7 @@ exports.update = async (req, res) => {
     await ResumeTemplate.query()
       .update({
         template_name: data.template_name,
+        template_id: data.template_id,
         template_code: data.template_code,
         thumbnail_url: data.thumbnail_url,
         template_file_url: data.template_file_url
