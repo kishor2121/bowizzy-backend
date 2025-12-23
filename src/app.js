@@ -37,7 +37,9 @@ const userSubscriptionRouter = require("./routes/userSubscription");
 const resumeRouter = require("./routes/resume");
 const candidateReviewRouter = require("./routes/candidateReview");
 const interviewerReviewRouter = require("./routes/interviewerReview");
+const userRouter = require("./routes/user");
 
+app.use("/", userRouter);
 app.use("/auth", authRouter);
 app.use("/", personalDetailsRouter);
 app.use("/", educationRouter);
