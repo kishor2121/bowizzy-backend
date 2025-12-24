@@ -3,15 +3,14 @@ const db = require("../db/knex");
 
 Model.knex(db);
 
-class InterviewSchedule extends Model {
+class UserVerificationRequest extends Model {
   static get tableName() {
-    return "interview_schedules";
+    return "user_verification_requests";
   }
 
   static get idColumn() {
-    return "interview_schedule_id";
+    return "id";
   }
 }
 
-
-module.exports = InterviewSchedule;
+module.exports = UserVerificationRequest;
