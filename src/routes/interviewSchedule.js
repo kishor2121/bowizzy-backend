@@ -37,6 +37,9 @@ router.get("/users/:user_id/verification/bank-details/:bank_id", auth, controlle
 router.put("/users/:user_id/verification/bank-details/:bank_id", auth, controller.updateBankAccountDetails);
 router.delete("/users/:user_id/verification/bank-details/:bank_id", auth, controller.deleteBankAccountDetails);
 
+// API to update the interview schedule status and slot status as completed
+router.put("/interview-schedules/:interview_schedule_id/status", auth, controller.updateInterviewAsCompleted);
+
 
 
 module.exports = router;

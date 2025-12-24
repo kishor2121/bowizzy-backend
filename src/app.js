@@ -37,6 +37,7 @@ const userSubscriptionRouter = require("./routes/userSubscription");
 const resumeRouter = require("./routes/resume");
 const candidateReviewRouter = require("./routes/candidateReview");
 const interviewerReviewRouter = require("./routes/interviewerReview");
+const userVerificationRequest = require("./routes/userVerificationRequest");
 
 app.use("/auth", authRouter);
 app.use("/", personalDetailsRouter);
@@ -56,6 +57,7 @@ app.use("/", userSubscriptionRouter);
 app.use("/", resumeRouter);
 app.use("/", candidateReviewRouter);
 app.use("/", interviewerReviewRouter);
+app.use("/", userVerificationRequest);
 
 app.get("/", (req, res) => {
   res.send("Node backend is working!");

@@ -412,7 +412,6 @@ exports.getAllBankInfoByUser = async (req, res) => {
     return res.status(200).json(bankInfo);
 
   } catch (err) {
-    console.error(err);
     return res.status(500).json({ message: "Error fetching bank account info" });
   }
 };
@@ -508,24 +507,32 @@ exports.getUserVerificationStatus = async (req, res) => {
 exports.getInterviewSlots = async (req, res) => {
   try {
     const { status } = req.query;
+    const currentUserId = req.user.user_id;
 
-    let list;
+    let query = InterviewSlot.query()
+      .whereNot("candidate_id", currentUserId)
+      .orderBy("start_time_utc", "asc");
 
-    if(status){
-      list = await InterviewSlot.query()
-      .where({ interview_status: status.toLowerCase() })
-      .orderBy("start_time_utc", "asc");
+    if (status) {
+      query = query.where(
+        "interview_status",
+        status.toLowerCase()
+      );
+    } else {
+      query = query.where(
+        "interview_status",
+        "open"
+      );
     }
-    else{
-      list = await InterviewSlot.query()
-      .where({ interview_status: "open"})
-      .orderBy("start_time_utc", "asc");
-    }
+
+    const list = await query;
 
     return res.status(200).json(list);
 
-  } catch(err) {
-    return res.status(500).json({ message: "Error fetching interview slots" });
+  } catch (err) {
+    return res.status(500).json({
+      message: "Error fetching interview slots"
+    });
   }
 };
 
@@ -548,22 +555,21 @@ exports.getCount = async (req, res) => {
 exports.saveSlot = async (req, res) => {
   try{
     const interviewer_id = req.user.user_id;
-    const { interview_slot_id, interview_priority, candidate_id } = req.body;
+    const { interview_slot_id, interview_priority } = req.body;
 
     // Ensure interviewer exists and is verified
     const userRow = await User.query().select('is_verified').where({ user_id: interviewer_id }).first();
     if (!userRow) return res.status(404).json({ message: 'Interviewer user not found' });
     if (!userRow.is_verified) return res.status(403).json({ message: 'Interviewer not verified. Access denied' });
 
-    if(!interview_slot_id || !candidate_id || !interview_priority)
+    if(!interview_slot_id || !interview_priority)
     {
-      return res.status(400).json({ message: "Interview slot ID, candidate ID and priority are required" })
+      return res.status(400).json({ message: "Interview slot ID and priority are required" })
     }
 
     const slotInfo = await InterviewSlot.query()
       .select("interview_status")
-      .where({ candidate_id })
-      .first();
+      .findById(interview_slot_id);
 
     if (!slotInfo) {
       return res.status(404).json({ message: "Interview slot not found" });
@@ -692,7 +698,7 @@ exports.getNextInterview = async (req, res) => {
       .first();
 
     if(!nextInterviewSchedule){
-      return res.status(404).json({ message: "Interview schedule not found" })
+      return res.status(404).json({ message: "No upcoming interview schedules found" })
       }
     
       return res.status(200).json(nextInterviewSchedule);
@@ -701,3 +707,63 @@ exports.getNextInterview = async (req, res) => {
     return res.status(500).json({ message: "Error fetching next interview schedule" });
   }
 }
+
+
+exports.updateInterviewAsCompleted = async (req, res) => {
+  try {
+    const { interview_schedule_id } = req.params;
+
+    if (!interview_schedule_id) {
+      return res.status(400).json({
+        message: "interview_schedule_id is required"
+      });
+    }
+
+    const interviewSchedule = await InterviewSchedule.query()
+      .findById(interview_schedule_id);
+
+    if (!interviewSchedule) {
+      return res.status(404).json({
+        message: "Interview schedule not found"
+      });
+    }
+
+    if (interviewSchedule.interview_status !== "confirmed") {
+      return res.status(409).json({
+        message: "Only confirmed interviews can be marked as completed"
+      });
+    }
+
+    const interview_slot_id = interviewSchedule.interview_slot_id;
+
+    let updatedSchedule;
+    let updatedSlot;
+
+    await InterviewSchedule.transaction(async (trx) => {
+
+      updatedSchedule = await InterviewSchedule.query(trx)
+        .patchAndFetchById(
+          interview_schedule_id,
+          { interview_status: "completed" }
+        );
+
+      updatedSlot = await InterviewSlot.query(trx)
+        .patchAndFetchById(
+          interview_slot_id,
+          { interview_status: "completed" }
+        );
+    });
+
+    return res.status(200).json({
+      message: "Interview marked as completed successfully",
+      interview_schedule: updatedSchedule,
+      interview_slot: updatedSlot
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      message: "Error updating interview as completed"
+    });
+  }
+};
+
