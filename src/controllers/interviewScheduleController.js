@@ -295,13 +295,15 @@ exports.getByUser = async (req, res) => {
 
     const slots = slotIds.length > 0 ? await InterviewSlot.query()
       .whereIn('interview_slot_id', slotIds)
-      .select('interview_slot_id', 'interview_code') : [];
+      .select('interview_slot_id', 'interview_code', 'job_role', 'experience') : [];
 
     const slotsById = slots.reduce((acc, sl) => { acc[sl.interview_slot_id] = sl; return acc; }, {});
 
     const enriched = list.map(s => ({
       ...s,
-      interview_code: slotsById[s.interview_slot_id] ? slotsById[s.interview_slot_id].interview_code : null
+      interview_code: slotsById[s.interview_slot_id] ? slotsById[s.interview_slot_id].interview_code : null,
+      job_role: slotsById[s.interview_slot_id] ? slotsById[s.interview_slot_id].job_role : null,
+      experience: slotsById[s.interview_slot_id] ? slotsById[s.interview_slot_id].experience : null,
     }));
 
     return res.status(200).json(enriched);
