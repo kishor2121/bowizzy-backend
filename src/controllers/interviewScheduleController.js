@@ -287,7 +287,24 @@ exports.getByUser = async (req, res) => {
       .orderBy("start_time_utc", "asc");
     }
 
-    return res.status(200).json(list);
+    if (!list || list.length === 0) {
+      return res.status(200).json([]);
+    }
+
+    const slotIds = Array.from(new Set(list.map(s => s.interview_slot_id).filter(Boolean)));
+
+    const slots = slotIds.length > 0 ? await InterviewSlot.query()
+      .whereIn('interview_slot_id', slotIds)
+      .select('interview_slot_id', 'interview_code') : [];
+
+    const slotsById = slots.reduce((acc, sl) => { acc[sl.interview_slot_id] = sl; return acc; }, {});
+
+    const enriched = list.map(s => ({
+      ...s,
+      interview_code: slotsById[s.interview_slot_id] ? slotsById[s.interview_slot_id].interview_code : null
+    }));
+
+    return res.status(200).json(enriched);
 
   } catch(err) {
     return res.status(500).json({ message: "Error fetching interview schedules" });
@@ -614,7 +631,6 @@ exports.removeSavedSlot = async (req, res) => {
   }
 }
 
-
 exports.getSavedSlotsByUser = async (req, res) => {
   try{
     const interviewer_id = req.user.user_id;
@@ -624,8 +640,34 @@ exports.getSavedSlotsByUser = async (req, res) => {
     if (!userRow) return res.status(404).json({ message: 'Interviewer user not found' });
     if (!userRow.is_verified) return res.status(403).json({ message: 'Interviewer not verified. Access denied' });
 
-    const list = await SaveSlot.query()
-      .where({ interviewer_id });
+    const savedSlots = await SaveSlot.query()
+      .where({ interviewer_id })
+      .orderBy('created_at', 'desc');
+
+    if (!savedSlots || savedSlots.length === 0) {
+      return res.status(200).json([]);
+    }
+
+    const slotIds = Array.from(new Set(savedSlots.map(s => s.interview_slot_id).filter(Boolean)));
+
+    const slots = slotIds.length > 0 ? await InterviewSlot.query().whereIn('interview_slot_id', slotIds) : [];
+
+    const schedules = slotIds.length > 0 ? await InterviewSchedule.query()
+      .whereIn('interview_slot_id', slotIds)
+      .orderBy('start_time_utc', 'asc') : [];
+
+    const slotsById = slots.reduce((acc, sl) => { acc[sl.interview_slot_id] = sl; return acc; }, {});
+    const schedulesBySlot = schedules.reduce((acc, sch) => {
+      acc[sch.interview_slot_id] = acc[sch.interview_slot_id] || [];
+      acc[sch.interview_slot_id].push(sch);
+      return acc;
+    }, {});
+
+    const list = savedSlots.map(s => ({
+      ...s,
+      interview_slot: slotsById[s.interview_slot_id] || null,
+      interview_schedules: schedulesBySlot[s.interview_slot_id] || []
+    }));
 
     return res.status(200).json(list);
 
@@ -633,7 +675,6 @@ exports.getSavedSlotsByUser = async (req, res) => {
     return res.status(200).json({ message: "Error fetching saved slots" })
   }
 }
-
 
 // exports.getSavedSlotById = async (req, res) => {
 //   try{
@@ -707,7 +748,6 @@ exports.getNextInterview = async (req, res) => {
     return res.status(500).json({ message: "Error fetching next interview schedule" });
   }
 }
-
 
 exports.updateInterviewAsCompleted = async (req, res) => {
   try {
