@@ -504,38 +504,20 @@ exports.getUserVerificationStatus = async (req, res) => {
 
 
 // Function to get the interview slots
-exports.getInterviewSlots = async (req, res) => {
-  try {
-    const { status } = req.query;
-    const currentUserId = req.user.user_id;
+  exports.getInterviewSlots = async (req, res) => {
+    try {
+      // console.log("TOKEN USER ID:", req.user.user_id);
 
-    let query = InterviewSlot.query()
-      .whereNot("candidate_id", currentUserId)
-      .orderBy("start_time_utc", "asc");
+      const slots = await InterviewSlot.query()
+        .where("interview_status", "open")
+        .whereNot("candidate_id", req.user.user_id)
+        .orderBy("start_time_utc", "asc");
 
-    if (status) {
-      query = query.where(
-        "interview_status",
-        status.toLowerCase()
-      );
-    } else {
-      query = query.where(
-        "interview_status",
-        "open"
-      );
+      return res.status(200).json(slots);
+    } catch (err) {
+      return res.status(500).json({ message: "Error fetching interview slots" });
     }
-
-    const list = await query;
-
-    return res.status(200).json(list);
-
-  } catch (err) {
-    return res.status(500).json({
-      message: "Error fetching interview slots"
-    });
-  }
-};
-
+  };
 
 exports.getCount = async (req, res) => {
   try{
