@@ -653,38 +653,56 @@ exports.getSavedSlotsByUser = async (req, res) => {
 }
 
 
-exports.getSavedSlotById = async (req, res) => {
-  try{
-    const interviewer_id = req.user.user_id;
-    const { saved_slot_id } = req.params;
+// exports.getSavedSlotById = async (req, res) => {
+//   try{
+//     const interviewer_id = req.user.user_id;
+//     const { saved_slot_id } = req.params;
 
-    // Ensure interviewer exists and is verified
-    const userRow = await User.query().select('is_verified').where({ user_id: interviewer_id }).first();
-    if (!userRow) return res.status(404).json({ message: 'Interviewer user not found' });
-    if (!userRow.is_verified) return res.status(403).json({ message: 'Interviewer not verified. Access denied' });
+//     // Ensure interviewer exists and is verified
+//     const userRow = await User.query().select('is_verified').where({ user_id: interviewer_id }).first();
+//     if (!userRow) return res.status(404).json({ message: 'Interviewer user not found' });
+//     if (!userRow.is_verified) return res.status(403).json({ message: 'Interviewer not verified. Access denied' });
 
-    const slotInfo = await SaveSlot.query()
-      .select("interview_slot_id")
-      .where({ interviewer_id, saved_slot_id })
-      .first();
+//     const slotInfo = await SaveSlot.query()
+//       .select("interview_slot_id")
+//       .where({ interviewer_id, saved_slot_id })
+//       .first();
 
-    if (!slotInfo) {
-      return res.status(404).json({ message: "Interview slot not found" });
-    }
+//     if (!slotInfo) {
+//       return res.status(404).json({ message: "Interview slot not found" });
+//     }
 
-    const interview_slot_id = slotInfo.interview_slot_id;
+//     const interview_slot_id = slotInfo.interview_slot_id;
 
-    const scheduleInfo = await InterviewSlot.query()
+//     const scheduleInfo = await InterviewSlot.query()
+//       .where({ interview_slot_id })
+//       .first();
+
+//     return res.status(200).json(scheduleInfo)
+
+//   }catch(err){
+//     return res.status(500).json({ message: "Error fetching interview schedule info" })
+//   }
+// }
+
+exports.getInterviewSlotById = async (req, res) => {
+  try {
+    const { interview_slot_id } = req.params;
+
+    const slot = await InterviewSlot.query()
       .where({ interview_slot_id })
       .first();
 
-    return res.status(200).json(scheduleInfo)
+    if (!slot) {
+      return res.status(404).json({ message: "Interview slot not found" });
+    }
 
-  }catch(err){
-    return res.status(500).json({ message: "Error fetching interview schedule info" })
+    return res.status(200).json(slot);
+
+  } catch (err) {
+    return res.status(500).json({ message: "Error fetching interview slot" });
   }
-}
-
+};
 
 exports.getNextInterview = async (req, res) => {
   try{

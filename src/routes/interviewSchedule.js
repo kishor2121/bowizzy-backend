@@ -18,7 +18,12 @@ router.get("/users/:user_id/mock-interview/interview-schedule/next-interviews", 
 router.post("/users/:user_id/mock-interview/interview-schedule/save-interview-slot", auth, controller.saveSlot);
 router.delete("/users/:user_id/mock-interview/interview-schedule/remove-interview-slot/:saved_slot_id", auth, controller.removeSavedSlot);
 router.get("/users/:user_id/mock-interview/interview-schedule/saved-interview-slots", auth, controller.getSavedSlotsByUser);
-router.get("/users/:user_id/mock-interview/interview-schedule/saved-interview-slot/:saved_slot_id", auth, controller.getSavedSlotById);
+// router.get("/users/:user_id/mock-interview/interview-schedule/saved-interview-slot/:saved_slot_id", auth, controller.getSavedSlotById);
+router.get(
+  "/mock-interview/interview-slot/:interview_slot_id",
+  auth,
+  controller.getInterviewSlotById
+);
 
 
 // Interview scheduling related APIs
