@@ -1,4 +1,6 @@
 const User = require("../models/User");
+const UserSubscription = require("../models/UserSubscription");
+
 
 exports.getInterviewerRequests = async (req, res) => {
   try {
@@ -76,3 +78,37 @@ exports.updateUser = async (req, res) => {
   }
 };
 
+
+exports.getUserPlanStats = async (req, res) => {
+  try {
+    // admin only
+    if (req.user.user_type !== "admin") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const totalUsers = await UserSubscription.query().resultSize();
+
+    const freeUsers = await UserSubscription.query()
+      .where("plan_type", "free")
+      .resultSize();
+
+    const plusUsers = await UserSubscription.query()
+      .where("plan_type", "plus")
+      .resultSize();
+
+    const premiumUsers = await UserSubscription.query()
+      .where("plan_type", "premium")
+      .resultSize();
+
+    return res.json({
+      total_users: totalUsers,
+      free_users: freeUsers,
+      plus_users: plusUsers,
+      premium_users: premiumUsers
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error fetching user stats" });
+  }
+};

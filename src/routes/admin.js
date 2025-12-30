@@ -20,4 +20,11 @@ router.put(
   controller.updateUser
 );
 
+router.get(
+  "/admin/user-plan-stats",
+  auth,
+  controller.getUserPlanStats
+);
+
+
 module.exports = router;
