@@ -26,5 +26,10 @@ router.get(
   controller.getUserPlanStats
 );
 
+router.get(
+  "/admin/interview-slot-stats",
+  auth,
+  controller.getInterviewSlots
+);
 
 module.exports = router;

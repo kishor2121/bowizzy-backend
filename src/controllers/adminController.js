@@ -1,6 +1,6 @@
 const User = require("../models/User");
 const UserSubscription = require("../models/UserSubscription");
-
+const InterviewSlot = require("../models/interviewSlot");
 
 exports.getInterviewerRequests = async (req, res) => {
   try {
@@ -110,5 +110,20 @@ exports.getUserPlanStats = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Error fetching user stats" });
+  }
+};
+
+exports.getInterviewSlots = async (req, res) => {
+  try {
+    console.log("TOKEN USER ID:", req.user.user_id);
+
+    const slots = await InterviewSlot.query()
+      .where("interview_status", "open")
+      .whereNot("candidate_id", req.user.user_id)
+      .orderBy("start_time_utc", "asc");
+
+    return res.status(200).json(slots);
+  } catch (err) {
+    return res.status(500).json({ message: "Error fetching interview slots" });
   }
 };
