@@ -115,15 +115,32 @@ exports.getUserPlanStats = async (req, res) => {
 
 exports.getInterviewSlots = async (req, res) => {
   try {
-    console.log("TOKEN USER ID:", req.user.user_id);
-
     const slots = await InterviewSlot.query()
+      .select(
+        "interview_slots.*",
+
+        "users.user_id as candidate_user_id",
+        "users.email as candidate_email",
+        "users.user_type as candidate_user_type",
+        "users.is_interviewer_verified as candidate_is_interviewer_verified",
+
+        "personal_details.first_name as candidate_first_name",
+        "personal_details.last_name as candidate_last_name",
+        "personal_details.profile_photo_url as candidate_profile_photo_url",
+        "personal_details.linkedin_url as candidate_linkedin_url",
+        "personal_details.mobile_number as candidate_mobile_number"
+      )
+      .leftJoin("users", "interview_slots.candidate_id", "users.user_id")
+      .leftJoin("personal_details", "users.user_id", "personal_details.user_id")
       .where("interview_status", "open")
       .whereNot("candidate_id", req.user.user_id)
       .orderBy("start_time_utc", "asc");
 
     return res.status(200).json(slots);
+
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ message: "Error fetching interview slots" });
   }
 };
+
