@@ -78,7 +78,6 @@ exports.updateUser = async (req, res) => {
   }
 };
 
-
 exports.getUserPlanStats = async (req, res) => {
   try {
     // admin only
@@ -115,7 +114,17 @@ exports.getUserPlanStats = async (req, res) => {
 
 exports.getInterviewSlots = async (req, res) => {
   try {
-    const slots = await InterviewSlot.query()
+    const {
+      from, // e.g. 2025-12-01
+      to, // e.g. 2025-12-31
+      mode, // interview_mode e.g. offline/online
+      status, // interview_status (overrides default 'open' filter)
+      job_role, // optional job role filter
+      page, // pagination page (1-based)
+      limit // pagination limit
+    } = req.query;
+
+    const query = InterviewSlot.query()
       .select(
         "interview_slots.*",
 
@@ -132,11 +141,73 @@ exports.getInterviewSlots = async (req, res) => {
       )
       .leftJoin("users", "interview_slots.candidate_id", "users.user_id")
       .leftJoin("personal_details", "users.user_id", "personal_details.user_id")
-      .where("interview_status", "open")
       .whereNot("candidate_id", req.user.user_id)
       .orderBy("start_time_utc", "asc");
 
-    return res.status(200).json(slots);
+    if (status) {
+      query.where("interview_status", status);
+    } else {
+      query.where("interview_status", "open");
+    }
+
+    if (mode) {
+      const modes = mode.split(",").map((m) => m.trim()).filter(Boolean);
+      if (modes.length === 1) {
+        query.whereRaw("LOWER(interview_mode) = LOWER(?)", [modes[0]]);
+      } else if (modes.length > 1) {
+        const lcModes = modes.map((m) => m.toLowerCase());
+        query.whereRaw(
+          `LOWER(interview_mode) IN (${lcModes.map(() => "?").join(",")})`,
+          lcModes
+        );
+      }
+    }
+
+    if (job_role) {
+      query.whereRaw("LOWER(job_role) LIKE LOWER(?)", [`%${job_role}%`]);
+    }
+
+    if (from || to) {
+      let fromDate = null;
+      let toDate = null;
+
+      if (from) {
+        fromDate = new Date(from);
+        if (isNaN(fromDate.getTime())) {
+          return res.status(400).json({ message: "Invalid 'from' date" });
+        }
+      }
+
+      if (to) {
+        toDate = new Date(to);
+        if (isNaN(toDate.getTime())) {
+          return res.status(400).json({ message: "Invalid 'to' date" });
+        }
+        // include entire 'to' day
+        toDate.setHours(23, 59, 59, 999);
+      }
+
+      if (fromDate && toDate) {
+        query.whereBetween("start_time_utc", [fromDate.toISOString(), toDate.toISOString()]);
+      } else if (fromDate) {
+        query.where("start_time_utc", ">=", fromDate.toISOString());
+      } else if (toDate) {
+        query.where("start_time_utc", "<=", toDate.toISOString());
+      }
+    }
+
+    // pagination: if page/limit provided, use Objection's page (page is 1-based)
+    const pageNum = page ? parseInt(page, 10) : null;
+    const pageLimit = limit ? parseInt(limit, 10) : null;
+
+    if (pageNum && pageLimit) {
+      // Objection page uses zero-based page index
+      const result = await query.page(pageNum - 1, pageLimit);
+      return res.status(200).json({ total: result.total, results: result.results });
+    }
+
+    const rows = await query;
+    return res.status(200).json(rows);
 
   } catch (err) {
     console.error(err);
