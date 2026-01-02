@@ -104,6 +104,7 @@ exports.authHandler = async (req, res) => {
         message: "Login successful",
         user_id: user.user_id,
         email: user.email,
+        user_type: user.user_type,
         token
       });
     }

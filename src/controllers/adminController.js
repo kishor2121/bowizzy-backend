@@ -214,4 +214,3 @@ exports.getInterviewSlots = async (req, res) => {
     return res.status(500).json({ message: "Error fetching interview slots" });
   }
 };
-
