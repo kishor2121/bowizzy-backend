@@ -9,7 +9,16 @@ exports.getInterviewerRequests = async (req, res) => {
     }
 
     const list = await User.query()
+      .select(
+        "users.user_id",
+        "users.email",
+        "users.user_type",
+        "users.is_interviewer_verified",
+        "users.created_at",
+        "users.updated_at"
+      )
       .where('is_interviewer_verified', 'requesting')
+      .withGraphFetched('[personal_details, skills, education_details, work_experience, job_roles]')
       .orderBy('user_id', 'asc');
 
     return res.json(list);
@@ -44,6 +53,59 @@ exports.verifyInterviewer = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Error verifying interviewer" });
+  }
+};
+
+exports.approveInterviewer = async (req, res) => {
+  try {
+    if (req.user.user_type !== "admin") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const list = await User.query()
+      .select(
+        "users.user_id",
+        "users.email",
+        "users.user_type",
+        "users.is_interviewer_verified",
+        "users.created_at",
+        "users.updated_at"
+      )
+      .where('is_interviewer_verified', 'true')
+      .withGraphFetched('[personal_details, skills, education_details, work_experience, job_roles]')
+      .orderBy('user_id', 'asc');
+
+    return res.json(list);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error fetching interviewer requests" });
+  }
+};
+
+exports.getAllUsers = async (req, res) => {
+  try {
+    if (req.user.user_type !== "admin") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const list = await User.query()
+      .select(
+        "users.user_id",
+        "users.email",
+        "users.user_type",
+        "users.is_interviewer_verified",
+        "users.created_at",
+        "users.updated_at"
+      )
+      .withGraphFetched('[personal_details, skills, education_details, work_experience, job_roles]')
+      .orderBy('user_id', 'asc');
+
+    return res.json(list);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error fetching interviewer requests" });
   }
 };
 

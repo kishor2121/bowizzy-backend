@@ -9,6 +9,18 @@ router.get(
   controller.getInterviewerRequests
 );
 
+router.get(
+  "/admin/approved-interviewers",
+  auth,
+  controller.approveInterviewer
+);
+
+router.get(
+  "/admin/all-users",
+  auth,
+  controller.getAllUsers
+);
+
 router.patch(
   "/admin/interviewers/:user_id/verify",
   auth,
