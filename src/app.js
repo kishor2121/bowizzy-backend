@@ -40,6 +40,7 @@ const interviewerReviewRouter = require("./routes/interviewerReview");
 const userVerificationRequest = require("./routes/userVerificationRequest");
 const userRouter = require("./routes/user");
 const adminRouter = require("./routes/admin");
+app.use("/payment", require("./routes/payment"));
 
 app.use("/", adminRouter);
 app.use("/", userRouter);
