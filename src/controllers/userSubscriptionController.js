@@ -3,7 +3,13 @@ const UserSubscription = require("../models/UserSubscription");
 exports.createOrUpdateSubscription = async (req, res) => {
   try {
     const user_id = req.params.user_id;
-    const { plan_type, end_date } = req.body;
+    const { plan_type, end_date, selected_templates = [] } = req.body;
+
+    if (!Array.isArray(selected_templates)) {
+      return res.status(400).json({
+        message: "selected_templates must be an array"
+      });
+    }
 
     let existing = await UserSubscription.query().findOne({ user_id });
 
@@ -14,7 +20,8 @@ exports.createOrUpdateSubscription = async (req, res) => {
           plan_type,
           start_date: new Date(),
           end_date,
-          status: "active"
+          status: "active",
+          selected_templates
         });
 
       return res.json(updated);
@@ -25,10 +32,11 @@ exports.createOrUpdateSubscription = async (req, res) => {
       plan_type,
       start_date: new Date(),
       end_date,
-      status: "active"
+      status: "active",
+      selected_templates
     });
 
-    res.status(201).json(created);
+    return res.status(201).json(created);
 
   } catch (err) {
     console.log("Subscription error:", err);
@@ -39,7 +47,13 @@ exports.createOrUpdateSubscription = async (req, res) => {
 exports.updateSubscription = async (req, res) => {
   try {
     const user_id = req.params.user_id;
-    const { plan_type, end_date, status } = req.body;
+    const { plan_type, end_date, status, selected_templates = [] } = req.body;
+
+    if (!Array.isArray(selected_templates)) {
+      return res.status(400).json({
+        message: "selected_templates must be an array"
+      });
+    }
 
     let existing = await UserSubscription.query().findOne({ user_id });
 
@@ -49,7 +63,8 @@ exports.updateSubscription = async (req, res) => {
         plan_type,
         start_date: new Date(),
         end_date,
-        status: status || "active"
+        status: status || "active",
+        selected_templates: JSON.stringify(selected_templates) // ✅ FIX
       });
 
       return res.status(201).json({
@@ -63,10 +78,11 @@ exports.updateSubscription = async (req, res) => {
       .patchAndFetchById(existing.subscription_id, {
         plan_type,
         end_date,
-        status
+        status,
+        selected_templates: JSON.stringify(selected_templates) // ✅ FIX
       });
 
-    res.json({
+    return res.json({
       message: "Subscription updated",
       data: updated
     });
@@ -85,11 +101,12 @@ exports.getSubscription = async (req, res) => {
     if (!record) {
       return res.json({
         plan_type: "free",
-        status: "active"
+        status: "active",
+        selected_templates: []
       });
     }
 
-    res.json(record);
+    return res.json(record);
 
   } catch (err) {
     res.status(500).json({ message: "Error fetching subscription" });
