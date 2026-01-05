@@ -205,7 +205,26 @@ exports.getById = async (req, res) => {
       return res.status(404).json({ message: "Interview slot not found" });
     }
 
-    return res.status(200).json(interviewSlot);
+    let candidateInfo = null;
+    if (interviewSlot.candidate_id) {
+      const candidate = await User.query()
+        .select('user_id')
+        .findById(interviewSlot.candidate_id)
+        .withGraphFetched('[personal_details, work_experience]');
+
+      if (candidate) {
+        candidateInfo = {
+          user_id: candidate.user_id,
+          personal_details: candidate.personal_details || null,
+          work_experience: candidate.work_experience || []
+        };
+      }
+    }
+
+    return res.status(200).json({
+      ...interviewSlot,
+      candidate: candidateInfo
+    });
 
   } catch(err) {
     return res.status(500).json({ message: "Error fetching interview slot" });
