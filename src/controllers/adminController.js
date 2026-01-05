@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const UserSubscription = require("../models/UserSubscription");
 const InterviewSlot = require("../models/interviewSlot");
+const UserPayment = require("../models/UserPayment");
 
 exports.getInterviewerRequests = async (req, res) => {
   try {
@@ -18,7 +19,7 @@ exports.getInterviewerRequests = async (req, res) => {
         "users.updated_at"
       )
       .where('is_interviewer_verified', 'requesting')
-      .withGraphFetched('[personal_details, skills, education_details, work_experience, job_roles]')
+      .withGraphFetched('[personal_details, skills, education_details, work_experience, job_roles, bank_details]')
       .orderBy('user_id', 'asc');
 
     return res.json(list);
@@ -72,7 +73,7 @@ exports.approveInterviewer = async (req, res) => {
         "users.updated_at"
       )
       .where('is_interviewer_verified', 'true')
-      .withGraphFetched('[personal_details, skills, education_details, work_experience, job_roles]')
+      .withGraphFetched('[personal_details, skills, education_details, work_experience, job_roles, bank_details]')
       .orderBy('user_id', 'asc');
 
     return res.json(list);
@@ -274,5 +275,69 @@ exports.getInterviewSlots = async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Error fetching interview slots" });
+  }
+};
+
+exports.getTotalRevenue = async (req, res) => {
+  try {
+    if (req.user.user_type !== "admin") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const { type } = req.query;
+
+    let query = UserPayment.query()
+      .where("status", "success");
+
+    if (type === "day") {
+      query.whereRaw("DATE(created_at) = CURRENT_DATE");
+    }
+
+    if (type === "month") {
+      query.whereRaw("DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)");
+    }
+
+    if (type === "year") {
+      query.whereRaw("DATE_TRUNC('year', created_at) = DATE_TRUNC('year', CURRENT_DATE)");
+    }
+
+    const result = await query.sum("amount as total");
+
+    const totalRevenue = (result[0].total || 0) / 100; // paise → rupees
+
+    return res.json({
+      type: type || "all",
+      total_revenue: totalRevenue
+    });
+
+  } catch (err) {
+    console.error("Revenue error:", err);
+    res.status(500).json({ message: "Failed to fetch revenue" });
+  }
+};
+
+exports.getUserWiseRevenue = async (req, res) => {
+  try {
+    if (req.user.user_type !== "admin") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const data = await UserPayment.query()
+      .select("user_id")
+      .sum("amount as total_paid")
+      .where("status", "success")
+      .groupBy("user_id")
+      .orderBy("total_paid", "desc");
+
+    const formatted = data.map(row => ({
+      user_id: row.user_id,
+      total_paid: row.total_paid / 100 // paise → rupees
+    }));
+
+    return res.json(formatted);
+
+  } catch (err) {
+    console.error("User revenue error:", err);
+    res.status(500).json({ message: "Failed to fetch user revenue" });
   }
 };

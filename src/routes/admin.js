@@ -44,4 +44,7 @@ router.get(
   controller.getInterviewSlots
 );
 
+router.get("/revenue", auth, controller.getTotalRevenue);
+router.get("/user-payments", auth, controller.getUserWiseRevenue);
+
 module.exports = router;

@@ -59,6 +59,14 @@ class User extends Model {
           to: "job_roles.user_id",
         },
       },
+      bank_details: {
+        relation: Model.HasManyRelation,
+        modelClass: require("./bankDetails"),
+        join: {
+          from: "users.user_id",
+          to: "bank_details.user_id",
+        },
+      },
     };
   }
 }
