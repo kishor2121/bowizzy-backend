@@ -42,14 +42,10 @@ exports.createOrder = async (req, res) => {
 // VERIFY PAYMENT + UPDATE SUBSCRIPTION
 exports.verifyPayment = async (req, res) => {
   try {
-    const user_id = req.user.user_id;
-
     const {
       razorpay_order_id,
       razorpay_payment_id,
-      razorpay_signature,
-      plan_type,
-      selected_templates = []
+      razorpay_signature
     } = req.body;
 
     const body = razorpay_order_id + "|" + razorpay_payment_id;
@@ -67,7 +63,7 @@ exports.verifyPayment = async (req, res) => {
       return res.status(400).json({ message: "Payment verification failed" });
     }
 
-    // UPDATE PAYMENT SUCCESS
+    // ✅ ONLY UPDATE PAYMENT
     await UserPayment.query()
       .patch({
         status: "success",
@@ -76,30 +72,8 @@ exports.verifyPayment = async (req, res) => {
       })
       .where({ razorpay_order_id });
 
-    // UPDATE SUBSCRIPTION
-    let existing = await UserSubscription.query().findOne({ user_id });
-
-    if (existing) {
-      await UserSubscription.query()
-        .patch({
-          plan_type,
-          status: "active",
-          start_date: new Date(),
-          selected_templates: JSON.stringify(selected_templates)
-        })
-        .where({ user_id });
-    } else {
-      await UserSubscription.query().insert({
-        user_id,
-        plan_type,
-        status: "active",
-        start_date: new Date(),
-        selected_templates: JSON.stringify(selected_templates)
-      });
-    }
-
     return res.json({
-      message: "Payment successful & subscription updated"
+      message: "Payment successful"
     });
 
   } catch (err) {
@@ -107,3 +81,4 @@ exports.verifyPayment = async (req, res) => {
     return res.status(500).json({ message: "Verification error" });
   }
 };
+
