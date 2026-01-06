@@ -14,19 +14,21 @@ const MONTH_MAP = {
   7: 'JY', 8: 'AG', 9: 'ST', 10: 'OT', 11: 'NV', 12: 'DC',
 };
 
-const generateInterviewCodePrefix = (jobRole, date) =>
-{
-  const [year, month, day] = date.split('-');
+const COMPANY_PREFIX = 'BOWIZZY';
 
-    let rolePrefix = '';
-    const roleWords = jobRole.split(' ');
+const generateInterviewCodePrefix = (jobRole, candidateDate, userCreatedAt, userDob) => {
+  // Use user's personal date_of_birth (YYYY-MM-DD) for MMDD if present, otherwise fallback to candidateDate (YYYY-MM-DD)
+  const sourceDate = userDob || candidateDate;
+  const [year, month, day] = sourceDate.split('-');
+  const mm = String(month).padStart(2, '0');
+  const dd = String(day).padStart(2, '0');
 
-    for (let word of roleWords) {
-        rolePrefix += word[0].toUpperCase();
-    }
+  // Use user's created_at if available, otherwise fallback to now (IST)
+  const created = userCreatedAt ? dayjs(userCreatedAt).tz('Asia/Kolkata') : dayjs().tz('Asia/Kolkata');
+  const createdDDMMYY = created.format('DDMMYY');
 
-    const monthCode = MONTH_MAP[Number(month)];
-    return `${rolePrefix}${year}${monthCode}${day}`;
+  // Format: BOWIZZY + <personal-MMDD> + <userCreated-DDMMYY>
+  return `${COMPANY_PREFIX}${mm}${dd}${createdDDMMYY}`;
 }
 
 // Returns { conflict: true, reason, rows } or { conflict: false }
@@ -152,9 +154,6 @@ exports.create = async (req, res) => {
 
     const jobrole = data.job_role;
 
-    // generate interviewCodePrefix from domain + date
-    const interviewCodePrefix = generateInterviewCodePrefix(jobrole, data.raw_date_string);
-
     const knex = InterviewSlot.knex();
 
     const created = await knex.transaction(async trx => {
@@ -162,6 +161,13 @@ exports.create = async (req, res) => {
       // This serializes concurrent slot-creation attempts for the same candidate.
       // pg_advisory_xact_lock accepts a signed 64-bit integer; candidate ids (int) are fine.
       await trx.raw('SELECT pg_advisory_xact_lock(?);', [user_id]);
+
+      // fetch user's created_at and personal date_of_birth from relevant tables (within transaction, after acquiring lock)
+      const userRow = await trx('users').select('created_at').where('user_id', user_id).first();
+      const personalRow = await trx('personal_details').select('date_of_birth').where('user_id', user_id).first();
+
+      // generate interviewCodePrefix from personal date_of_birth DDMM (fallback to candidate date) + user's created_at
+      const interviewCodePrefix = generateInterviewCodePrefix(jobrole, data.raw_date_string, userRow && userRow.created_at, personalRow && personalRow.date_of_birth);
 
       // run conflict checks under the same transaction
       const conflict = await checkCandidateConflictFull(trx, user_id, start_time_utc, end_time_utc);
