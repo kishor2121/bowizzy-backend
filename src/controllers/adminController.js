@@ -2,6 +2,7 @@ const User = require("../models/User");
 const UserSubscription = require("../models/UserSubscription");
 const InterviewSlot = require("../models/interviewSlot");
 const UserPayment = require("../models/UserPayment");
+const Pricing = require("../models/Pricing");
 
 exports.getInterviewerRequests = async (req, res) => {
   try {
@@ -339,5 +340,78 @@ exports.getUserWiseRevenue = async (req, res) => {
   } catch (err) {
     console.error("User revenue error:", err);
     res.status(500).json({ message: "Failed to fetch user revenue" });
+  }
+};
+
+exports.createPrice = async (req, res) => {
+  try {
+    const { bowizzy_plan_type, amount } = req.body;
+
+    const price = await Pricing.query().insert({
+      bowizzy_plan_type,
+      amount
+    });
+
+    return res.json(price);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Error creating price" });
+  }
+};
+
+exports.getPrices = async (req, res) => {
+  try {
+    const { bowizzy_plan_type } = req.query;
+
+    let query = Pricing.query().orderBy("id", "asc");
+
+    if (bowizzy_plan_type) {
+      query = query.where("bowizzy_plan_type", bowizzy_plan_type);
+    }
+
+    const prices = await query;
+    return res.json(prices);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Error fetching prices" });
+  }
+};
+
+exports.updatePrice = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { amount, is_active } = req.body;
+
+    const updatedRow = await Pricing.query()
+      .patchAndFetchById(id, { amount, is_active });
+
+    if (!updatedRow) {
+      return res.status(404).json({ message: "Price not found" });
+    }
+
+    return res.json({
+      message: "Price updated successfully",
+      data: updatedRow
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Error updating price" });
+  }
+};
+
+exports.deletePrice = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const deleted = await Pricing.query().deleteById(id);
+
+    if (!deleted) {
+      return res.status(404).json({ message: "Price not found" });
+    }
+
+    return res.json({ message: "Price deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Error deleting price" });
   }
 };
