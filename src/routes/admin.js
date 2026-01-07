@@ -53,4 +53,11 @@ router.get("/admin/pricing", auth, controller.getPrices);
 router.put("/admin/pricing/:id", auth, controller.updatePrice);
 router.delete("/admin/pricing/:id", auth, controller.deletePrice);
 
+router.post("/admin/plans", auth, controller.createPlan);
+router.get("/admin/plans", auth, controller.getPlans);
+router.put("/admin/plans/:id", auth, controller.updatePlan);
+router.delete("/admin/plans/:id", auth, controller.deletePlan);
+router.get("/admin/plans/:id", auth, controller.getPlanById);
+
+
 module.exports = router;

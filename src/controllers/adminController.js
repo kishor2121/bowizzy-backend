@@ -3,6 +3,7 @@ const UserSubscription = require("../models/UserSubscription");
 const InterviewSlot = require("../models/interviewSlot");
 const UserPayment = require("../models/UserPayment");
 const Pricing = require("../models/Pricing");
+const SubscriptionPlan = require("../models/SubscriptionPlan");
 
 exports.getInterviewerRequests = async (req, res) => {
   try {
@@ -179,13 +180,13 @@ exports.getUserPlanStats = async (req, res) => {
 exports.getInterviewSlots = async (req, res) => {
   try {
     const {
-      from, // e.g. 2025-12-01
-      to, // e.g. 2025-12-31
-      mode, // interview_mode e.g. offline/online
-      status, // interview_status (overrides default 'open' filter)
-      job_role, // optional job role filter
-      page, // pagination page (1-based)
-      limit // pagination limit
+      from, 
+      to, 
+      mode, 
+      status, 
+      job_role, 
+      page, 
+      limit 
     } = req.query;
 
     const query = InterviewSlot.query()
@@ -413,5 +414,76 @@ exports.deletePrice = async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Error deleting price" });
+  }
+};
+
+exports.createPlan = async (req, res) => {
+  try {
+    const plan = await SubscriptionPlan.query().insert(req.body);
+    return res.json(plan);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Error creating plan" });
+  }
+};
+
+exports.getPlans = async (req, res) => {
+  try {
+    const plans = await SubscriptionPlan.query()
+      .where("is_active", true)
+      .orderBy("id", "asc");
+
+    return res.json(plans);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Error fetching plans" });
+  }
+};
+
+exports.updatePlan = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const updatedPlan = await SubscriptionPlan.query()
+      .patchAndFetchById(id, req.body);
+
+    if (!updatedPlan) {
+      return res.status(404).json({ message: "Plan not found" });
+    }
+
+    return res.json({
+      message: "Plan updated successfully",
+      data: updatedPlan
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Error updating plan" });
+  }
+};
+
+exports.deletePlan = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const deleted = await SubscriptionPlan.query().deleteById(id);
+
+    if (!deleted) {
+      return res.status(404).json({ message: "Plan not found" });
+    }
+
+    return res.json({ message: "Plan deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Error deleting plan" });
+  }
+};
+
+exports.getPlanById = async (req, res) => {
+  try {
+    const plan = await SubscriptionPlan.query().findById(req.params.id);
+    if (!plan) return res.status(404).json({ message: "Plan not found" });
+    res.json(plan);
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching plan" });
   }
 };
