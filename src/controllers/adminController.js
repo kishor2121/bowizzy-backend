@@ -378,6 +378,23 @@ exports.getPrices = async (req, res) => {
   }
 };
 
+exports.getPriceById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const price = await Pricing.query().findById(id);
+
+    if (!price) {
+      return res.status(404).json({ message: "Price not found" });
+    }
+
+    return res.json(price);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Error fetching price" });
+  }
+};
+
 exports.updatePrice = async (req, res) => {
   try {
     const { id } = req.params;

@@ -50,6 +50,7 @@ router.get("/user-payments", auth, controller.getUserWiseRevenue);
 //pricing_routes
 router.post("/admin/pricing", auth, controller.createPrice);
 router.get("/admin/pricing", auth, controller.getPrices);
+router.get("/admin/pricing/:id", auth, controller.getPriceById);
 router.put("/admin/pricing/:id", auth, controller.updatePrice);
 router.delete("/admin/pricing/:id", auth, controller.deletePrice);
 
