@@ -68,7 +68,7 @@ exports.getProfileProgress = async (req, res) => {
     }
 
     const skills = await Skill.query().where({ user_id });
-    const links = await Link.query().where({ user_id });
+    const links = await Link.query().where({ user_id }).whereNot('link_type', 'linkedin');
 
     if (skills.length > 0 || links.length > 0) {
       completed++;

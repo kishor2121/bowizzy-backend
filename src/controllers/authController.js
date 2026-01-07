@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const PersonalDetails = require("../models/PersonalDetails");
 const UserSubscription = require("../models/UserSubscription"); // ⬅ ADD THIS
+const Link = require("../models/Link");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const admin = require("../firebase");
@@ -67,6 +68,19 @@ exports.authHandler = async (req, res) => {
         date_of_birth: date_of_birth || null,
          linkedin_url: linkedin_url || null 
       });
+
+      // If a LinkedIn URL was provided at signup, save it in the links table
+      if (linkedin_url) {
+        try {
+          await Link.query().insert({
+            user_id: user.user_id,
+            url: linkedin_url,
+            link_type: "linkedin"
+          });
+        } catch (err) {
+          console.error("Failed to save link:", err);
+        }
+      }
 
       await UserSubscription.query().insert({
         user_id: user.user_id,
