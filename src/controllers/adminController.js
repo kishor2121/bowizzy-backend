@@ -327,13 +327,13 @@ exports.getUserWiseRevenue = async (req, res) => {
     const data = await UserPayment.query()
       .select("user_id")
       .sum("amount as total_paid")
-      .where("status", "success")
+      .where("status", "success") 
       .groupBy("user_id")
       .orderBy("total_paid", "desc");
 
     const formatted = data.map(row => ({
       user_id: row.user_id,
-      total_paid: row.total_paid / 100 // paise → rupees
+      total_paid: Number(row.total_paid)
     }));
 
     return res.json(formatted);
