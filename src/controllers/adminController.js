@@ -305,7 +305,7 @@ exports.getTotalRevenue = async (req, res) => {
 
     const result = await query.sum("amount as total");
 
-    const totalRevenue = (result[0].total || 0) / 100; // paise → rupees
+    const totalRevenue = Number(result[0].total || 0);
 
     return res.json({
       type: type || "all",
