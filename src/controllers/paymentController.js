@@ -4,15 +4,53 @@ const UserPayment = require("../models/UserPayment");
 const UserSubscription = require("../models/UserSubscription");
 
 // CREATE ORDER
+// exports.createOrder = async (req, res) => {
+//   try {
+//     const { amount, plan_type } = req.body;
+//     const user_id = req.user.user_id;
+
+//     if (!amount || isNaN(amount) || Number(amount) <= 0) {
+//       return res.status(400).json({ message: "Invalid amount" });
+//     }
+
+//     const paise = Math.round(Number(amount) * 100);
+
+//     const order = await razorpay.orders.create({
+//       amount: paise,
+//       currency: "INR",
+//       receipt: `rcpt_${Date.now()}`
+//     });
+
+//     // SAVE PAYMENT (created)
+//     await UserPayment.query().insert({
+//       user_id,
+//       razorpay_order_id: order.id,
+//       amount: paise,
+//       currency: "INR",
+//       status: "created",
+//       plan_type
+//     });
+
+//     return res.json(order);
+
+//   } catch (err) {
+//     console.error("createOrder error:", err);
+//     return res.status(500).json({ message: "Order creation failed" });
+//   }
+// };
+
+// CREATE ORDER
 exports.createOrder = async (req, res) => {
   try {
     const { amount, plan_type } = req.body;
     const user_id = req.user.user_id;
 
+    // validate rupees
     if (!amount || isNaN(amount) || Number(amount) <= 0) {
       return res.status(400).json({ message: "Invalid amount" });
     }
 
+    // Razorpay needs paise
     const paise = Math.round(Number(amount) * 100);
 
     const order = await razorpay.orders.create({
@@ -21,11 +59,11 @@ exports.createOrder = async (req, res) => {
       receipt: `rcpt_${Date.now()}`
     });
 
-    // SAVE PAYMENT (created)
+    // ✅ STORE RUPEES IN DB
     await UserPayment.query().insert({
       user_id,
       razorpay_order_id: order.id,
-      amount: paise,
+      amount: Number(amount),   // ₹100 stays 100
       currency: "INR",
       status: "created",
       plan_type
@@ -38,6 +76,7 @@ exports.createOrder = async (req, res) => {
     return res.status(500).json({ message: "Order creation failed" });
   }
 };
+
 
 // VERIFY PAYMENT + UPDATE SUBSCRIPTION
 exports.verifyPayment = async (req, res) => {
