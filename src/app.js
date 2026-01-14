@@ -41,6 +41,7 @@ const userVerificationRequest = require("./routes/userVerificationRequest");
 const userRouter = require("./routes/user");
 const adminRouter = require("./routes/admin");
 app.use("/payment", require("./routes/payment"));
+app.use("/api/terms", require("./routes/termsConditionRoutes"));
 
 app.use("/", adminRouter);
 app.use("/", userRouter);
