@@ -3,6 +3,8 @@ const InterviewSchedule = require("../models/interviewSchedule");
 const BankDetails = require("../models/bankDetails");
 const User = require("../models/User");
 const SaveSlot = require("../models/saveSlot");
+// const { createMeet } = require("../services/googleMeetService");
+const { createZoomMeeting } = require("../services/zoomMeetService");
 
 const dayjs = require('dayjs');
 const utc = require('dayjs/plugin/utc');
@@ -59,104 +61,111 @@ async function checkInterviewerConflictFull(trx, interviewerId, startTimeUtc, en
 // Function to create interview schedule for a give slot
 exports.create = async (req, res) => {
   try {
-    const interviewer_id = req.user && req.user.user_id;
-    if (!interviewer_id) return res.status(401).json({ message: 'Unauthorized' });
+    const interviewer_id = req.user?.user_id;
+    if (!interviewer_id) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
-    const { interview_slot_id } = req.body || {};
-    if (!interview_slot_id) return res.status(400).json({ message: 'Interview slot ID is required' });
+    const { interview_slot_id } = req.body;
+    if (!interview_slot_id) {
+      return res.status(400).json({ message: "Interview slot ID is required" });
+    }
 
     const knex = InterviewSchedule.knex();
 
-    // Ensure interviewer exists and is verified
-    const userRow = await User.query().select('is_verified').where({ user_id: interviewer_id }).first();
-    if (!userRow) return res.status(404).json({ message: 'Interviewer user not found' });
-    if (!userRow.is_verified) return res.status(403).json({ message: 'Interviewer not verified. Access denied' });
+    // verify interviewer
+    const userRow = await User.query()
+      .select("is_verified")
+      .where({ user_id: interviewer_id })
+      .first();
 
-    // Transaction: lock slot, validate status (only in interview_slots), check schedule conflicts, create schedule, update slot -> confirmed
+    if (!userRow) {
+      return res.status(404).json({ message: "Interviewer user not found" });
+    }
+
+    if (!userRow.is_verified) {
+      return res.status(403).json({ message: "Interviewer not verified" });
+    }
+
     const createdSchedule = await knex.transaction(async (trx) => {
-      // Lock the slot row to avoid concurrent confirms
-      const slotRow = await trx('interview_slots')
+      // lock slot
+      const slotRow = await trx("interview_slots")
         .where({ interview_slot_id })
         .forUpdate()
         .first();
 
       if (!slotRow) {
-        const e = new Error('Interview slot not found');
+        const e = new Error("Interview slot not found");
         e.status = 404;
         throw e;
       }
 
-      // Ensure slot is open (checked only in interview_slots)
-      if (String(slotRow.interview_status).toLowerCase() !== 'open') {
-        const e = new Error('Slot is not available (must be open)');
+      if (slotRow.interview_status !== "open") {
+        const e = new Error("Slot is not available");
         e.status = 400;
         throw e;
       }
 
-      // Run conflict checks against interview_schedules only
-      const conflict = await checkInterviewerConflictFull(trx, interviewer_id, slotRow.start_time_utc, slotRow.end_time_utc);
-      if (conflict.conflict) {
-        const e = new Error('Interviewer conflict: ' + conflict.reason);
-        e.status = 409;
-        e.rows = conflict.rows;
-        throw e;
-      }
-
-      // Build schedule payload using slot's start/end times
-      const schedulePayload = {
-        interview_slot_id,
+      // conflict check
+      const conflict = await checkInterviewerConflictFull(
+        trx,
         interviewer_id,
-        candidate_id: slotRow.candidate_id,
-        interview_status: 'confirmed',
-        start_time_utc: slotRow.start_time_utc,
-        end_time_utc: slotRow.end_time_utc,
-        interview_mode: slotRow.interview_mode,
-        created_at: knex.raw('now()'),
-        updated_at: knex.raw('now()'),
-      };
+        slotRow.start_time_utc,
+        slotRow.end_time_utc
+      );
 
-      // Insert schedule
-      const [insertedSchedule] = await trx('interview_schedules')
-        .insert(schedulePayload)
-        .returning('*');
-
-      if (!insertedSchedule) {
-        const e = new Error('Failed to create interview schedule');
-        e.status = 500;
+      if (conflict.conflict) {
+        const e = new Error("Interviewer conflict");
+        e.status = 409;
         throw e;
       }
 
-      // Mark slot as confirmed (update only interview_slots)
-      const slotUpdateCount = await trx('interview_slots')
+      // ✅ CREATE ZOOM MEETING
+      const zoomLink = await createZoomMeeting({
+        startTimeUtc: slotRow.start_time_utc
+      });
+
+      // create schedule
+      const [schedule] = await trx("interview_schedules")
+        .insert({
+          interview_slot_id,
+          interviewer_id,
+          candidate_id: slotRow.candidate_id,
+          interview_status: "confirmed",
+          start_time_utc: slotRow.start_time_utc,
+          end_time_utc: slotRow.end_time_utc,
+          interview_mode: slotRow.interview_mode,
+          meeting_link: zoomLink,
+          meeting_type: "zoom",
+          created_at: knex.raw("now()"),
+          updated_at: knex.raw("now()")
+        })
+        .returning("*");
+
+      // update slot
+      await trx("interview_slots")
         .where({ interview_slot_id })
         .update({
-          interview_status: 'confirmed',
-          updated_at: knex.raw('now()'),
+          interview_status: "confirmed",
+          updated_at: knex.raw("now()")
         });
 
-      if (!slotUpdateCount) {
-        const e = new Error('Failed to update interview slot to confirmed');
-        e.status = 500;
-        throw e;
-      }
-      
-      // Removing all the saved slot entries for the current interview slot.
-      await trx('saved_slots')
-      .where({ interview_slot_id })
-      .del();
+      // remove saved slots
+      await trx("saved_slots")
+        .where({ interview_slot_id })
+        .del();
 
-      return insertedSchedule;
+      return schedule;
     });
 
     return res.status(201).json(createdSchedule);
-  } catch(err) {
-    if (err && err.status) {
-      // In prod you might avoid returning raw rows; keep it for debugging/dev only.
-      const payload = { message: err.message };
-      if (err.status === 409 && err.rows) payload.rows = err.rows;
-      return res.status(err.status).json(payload);
+
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ message: err.message });
     }
-    return res.status(500).json({ message: 'Error creating interview schedule' });
+    console.error(err);
+    return res.status(500).json({ message: "Error creating interview schedule" });
   }
 };
 
@@ -181,9 +190,8 @@ exports.getById = async (req, res) => {
       return res.status(401).json({ message: "Interviewer is not verified. Access denied." })
     }
 
-    // Step 1: Get the interview schedule that belongs to this interviewer
+    // Step 1: Get the interview schedule with meeting link
     const schedule = await InterviewSchedule.query()
-      .select("interview_slot_id")
       .where({
         interviewer_id: user_id,
         interview_schedule_id: id
@@ -194,10 +202,8 @@ exports.getById = async (req, res) => {
       return res.status(404).json({ message: "Interview schedule not found" });
     }
 
-    // Step 2: Extract slot ID
+    // Step 2: Get interview slot details
     const slotId = schedule.interview_slot_id;
-
-    // Step 3: Fetch complete interview slot row
     const interviewSlot = await InterviewSlot.query()
       .findById(slotId);
 
@@ -205,6 +211,7 @@ exports.getById = async (req, res) => {
       return res.status(404).json({ message: "Interview slot not found" });
     }
 
+    // Step 3: Get candidate info
     let candidateInfo = null;
     if (interviewSlot.candidate_id) {
       const candidate = await User.query()
@@ -221,8 +228,10 @@ exports.getById = async (req, res) => {
       }
     }
 
+    // Return schedule with meeting_link + slot data + candidate
     return res.status(200).json({
-      ...interviewSlot,
+      ...schedule,
+      interview_slot: interviewSlot,
       candidate: candidateInfo
     });
 

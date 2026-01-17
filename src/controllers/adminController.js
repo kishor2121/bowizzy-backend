@@ -112,6 +112,37 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
+// exports.updateUser = async (req, res) => {
+//   try {
+//     const { user_id } = req.params;
+//     const {
+//       name,
+//       email,
+//       user_type,
+//       is_interviewer_verified
+//     } = req.body;
+
+//     const updated = await User.query()
+//       .patch({
+//         name,
+//         email,
+//         user_type,
+//         is_interviewer_verified
+//       })
+//       .where({ user_id });
+
+//     if (updated === 0) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+
+//     return res.json({ message: "User updated successfully" });
+
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ message: "Error updating user" });
+//   }
+// };
+
 exports.updateUser = async (req, res) => {
   try {
     const { user_id } = req.params;
@@ -119,21 +150,23 @@ exports.updateUser = async (req, res) => {
       name,
       email,
       user_type,
-      is_interviewer_verified
+      is_interviewer_verified,
+      is_verified
     } = req.body;
 
-    const updated = await User.query()
-      .patch({
-        name,
-        email,
-        user_type,
-        is_interviewer_verified
-      })
-      .where({ user_id });
+    const user = await User.query().findById(user_id);
 
-    if (updated === 0) {
+    if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+
+    await user.$query().patch({
+      name,
+      email,
+      user_type,
+      is_interviewer_verified,
+      is_verified 
+    });
 
     return res.json({ message: "User updated successfully" });
 

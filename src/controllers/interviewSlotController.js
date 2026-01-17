@@ -277,7 +277,24 @@ exports.getByUser = async (req, res) => {
       return res.status(404).json({ message: "Interview slot not found" });
     }
 
-    return res.status(200).json(record);
+    // Check if interview is confirmed and has a schedule with meeting_link
+    let schedule = null;
+    if (record.interview_status === 'confirmed') {
+      schedule = await InterviewSlot.query()
+        .knex()('interview_schedules')
+        .where({
+          interview_slot_id: id,
+          candidate_id: user_id
+        })
+        .first();
+    }
+
+    return res.status(200).json({
+      ...record,
+      meeting_link: schedule ? schedule.meeting_link : null,
+      meeting_type: schedule ? schedule.meeting_type : null,
+      interview_schedule_id: schedule ? schedule.interview_schedule_id : null
+    });
 
   } catch (err) {
     return res.status(500).json({ message: "Error fetching interview slot" });
