@@ -1,10 +1,25 @@
 const User = require("../models/User");
 const PersonalDetails = require("../models/PersonalDetails");
-const UserSubscription = require("../models/UserSubscription"); // ⬅ ADD THIS
+const UserSubscription = require("../models/UserSubscription");
 const Link = require("../models/Link");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const admin = require("../firebase");
+const knex = require("../db/knex"); 
+
+function generateCouponCode() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let random = "";
+  for (let i = 0; i < 4; i++) {
+    random += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+
+  return `WIZZY-${year}${month}-${random}`;
+}
 
 exports.authHandler = async (req, res) => {
   try {
@@ -21,12 +36,19 @@ exports.authHandler = async (req, res) => {
         phone_number,
         gender,
         date_of_birth,
-        linkedin_url
+        linkedin_url,
+        referral_coupon 
       } = req.body;
 
-      const requiredFields = ["email", "password", "first_name", "last_name", "phone_number"];
-      let missing = [];
+      const requiredFields = [
+        "email",
+        "password",
+        "first_name",
+        "last_name",
+        "phone_number"
+      ];
 
+      let missing = [];
       requiredFields.forEach((field) => {
         if (!req.body[field]) missing.push(field);
       });
@@ -39,13 +61,18 @@ exports.authHandler = async (req, res) => {
       }
 
       const exists = await User.query().findOne({ email });
-      if (exists) return res.status(400).json({ message: "Email already exists" });
+      if (exists)
+        return res.status(400).json({ message: "Email already exists" });
 
       const existsPhone = await User.query().findOne({ phone_number });
       if (existsPhone)
-        return res.status(400).json({ message: "Phone number already exists" });
+        return res
+          .status(400)
+          .json({ message: "Phone number already exists" });
 
       const password_hash = await bcrypt.hash(password, 10);
+
+      const myCouponCode = generateCouponCode();
 
       const user = await User.query().insert({
         email,
@@ -54,8 +81,30 @@ exports.authHandler = async (req, res) => {
         first_name,
         last_name,
         phone_number,
-        gender
+        gender,
+        coupon_code: myCouponCode
       });
+
+      await knex("user_credits").insert({
+        user_id: user.user_id,
+        credits: 0
+      });
+
+      if (referral_coupon) {
+        const refUser = await User.query().findOne({
+          coupon_code: referral_coupon
+        });
+
+        if (refUser) {
+          await knex("user_credits")
+            .where({ user_id: refUser.user_id })
+            .increment("credits", 20);
+
+          await knex("user_credits")
+            .where({ user_id: user.user_id })
+            .increment("credits", 20);
+        }
+      }
 
       await PersonalDetails.query().insert({
         user_id: user.user_id,
@@ -66,10 +115,9 @@ exports.authHandler = async (req, res) => {
         mobile_number: phone_number,
         gender: gender || "",
         date_of_birth: date_of_birth || null,
-         linkedin_url: linkedin_url || null 
+        linkedin_url: linkedin_url || null
       });
 
-      // If a LinkedIn URL was provided at signup, save it in the links table
       if (linkedin_url) {
         try {
           await Link.query().insert({
@@ -86,14 +134,15 @@ exports.authHandler = async (req, res) => {
         user_id: user.user_id,
         plan_type: "free",
         start_date: new Date(),
-        end_date: null,             
+        end_date: null,
         status: "active"
       });
 
       return res.status(201).json({
         message: "Signup successful",
         user_id: user.user_id,
-        email: user.email
+        email: user.email,
+        coupon_code: myCouponCode
       });
     }
 
@@ -101,10 +150,12 @@ exports.authHandler = async (req, res) => {
       const { email, password } = req.body;
 
       const user = await User.query().findOne({ email });
-      if (!user) return res.status(401).json({ message: "Invalid credentials" });
+      if (!user)
+        return res.status(401).json({ message: "Invalid credentials" });
 
       const match = await bcrypt.compare(password, user.password_hash);
-      if (!match) return res.status(401).json({ message: "Invalid credentials" });
+      if (!match)
+        return res.status(401).json({ message: "Invalid credentials" });
 
       const token = jwt.sign(
         { user_id: user.user_id, user_type: user.user_type },
@@ -112,7 +163,9 @@ exports.authHandler = async (req, res) => {
         { expiresIn: process.env.JWT_EXPIRES_IN }
       );
 
-      await User.query().patch({ current_token: token }).where({ user_id: user.user_id });
+      await User.query()
+        .patch({ current_token: token })
+        .where({ user_id: user.user_id });
 
       return res.json({
         message: "Login successful",
@@ -134,10 +187,18 @@ exports.authHandler = async (req, res) => {
       let user = await User.query().findOne({ email });
 
       if (!user) {
+        const myCouponCode = generateCouponCode();
+
         user = await User.query().insert({
           email,
           password_hash: "",
-          user_type: "regular"
+          user_type: "regular",
+          coupon_code: myCouponCode
+        });
+
+        await knex("user_credits").insert({
+          user_id: user.user_id,
+          credits: 0
         });
 
         await PersonalDetails.query().insert({
@@ -167,6 +228,7 @@ exports.authHandler = async (req, res) => {
         token
       });
     }
+
     return res.status(400).json({
       message: "Invalid type. Must be one of: signup | login | google"
     });

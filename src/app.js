@@ -40,11 +40,13 @@ const interviewerReviewRouter = require("./routes/interviewerReview");
 const userVerificationRequest = require("./routes/userVerificationRequest");
 const userRouter = require("./routes/user");
 const adminRouter = require("./routes/admin");
+const creditsRouter = require("./routes/credits");
 app.use("/payment", require("./routes/payment"));
 app.use("/api/terms", require("./routes/termsConditionRoutes"));
 
 app.use("/", adminRouter);
 app.use("/", userRouter);
+app.use("/", creditsRouter);
 app.use("/auth", authRouter);
 app.use("/", personalDetailsRouter);
 app.use("/", educationRouter);
