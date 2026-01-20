@@ -4,6 +4,7 @@ const InterviewSlot = require("../models/interviewSlot");
 const UserPayment = require("../models/UserPayment");
 const Pricing = require("../models/Pricing");
 const SubscriptionPlan = require("../models/SubscriptionPlan");
+const ExcelJS = require("exceljs");
 
 exports.getInterviewerRequests = async (req, res) => {
   try {
@@ -535,5 +536,90 @@ exports.getPlanById = async (req, res) => {
     res.json(plan);
   } catch (err) {
     res.status(500).json({ message: "Error fetching plan" });
+  }
+};
+
+exports.exportUsersToExcel = async (req, res) => {
+  try {
+    if (req.user.user_type !== "admin") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const { fromDate, toDate } = req.query;
+
+    let query = User.query()
+      .select(
+        "users.user_id",
+        "users.email",
+        "users.user_type",
+        "users.is_interviewer_verified",
+        "users.is_verified",
+        "users.created_at",
+        "users.updated_at"
+      )
+      .withGraphFetched('[personal_details, skills, education_details, work_experience, job_roles]')
+      .orderBy('user_id', 'asc');
+
+    if (fromDate || toDate) {
+      if (fromDate) {
+        const from = new Date(fromDate);
+        if (isNaN(from.getTime())) {
+          return res.status(400).json({ message: "Invalid 'fromDate' format. Use ISO format: YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss.SSSZ" });
+        }
+        query.where("users.created_at", ">=", from.toISOString());
+      }
+
+      if (toDate) {
+        const to = new Date(toDate);
+        if (isNaN(to.getTime())) {
+          return res.status(400).json({ message: "Invalid 'toDate' format. Use ISO format: YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss.SSSZ" });
+        }
+        to.setHours(23, 59, 59, 999);
+        query.where("users.created_at", "<=", to.toISOString());
+      }
+    }
+
+    const list = await query;
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Users");
+
+    worksheet.columns = [
+      { header: "User ID", key: "user_id", width: 15 },
+      { header: "Email", key: "email", width: 30 },
+      { header: "User Type", key: "user_type", width: 15 },
+      { header: "Interviewer Verified", key: "is_interviewer_verified", width: 20 },
+      { header: "Job Roles", key: "job_roles", width: 30 },
+      { header: "Created At", key: "created_at", width: 25 },
+      { header: "Updated At", key: "updated_at", width: 25 }
+    ];
+
+    worksheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+    worksheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4472C4" } };
+
+    list.forEach((user) => {
+      const row = {
+        user_id: user.user_id,
+        email: user.email,
+        user_type: user.user_type,
+        is_interviewer_verified: user.is_interviewer_verified || "no",
+        job_roles: user.job_roles?.map(j => j.job_role_name).join(", ") || "",
+        created_at: new Date(user.created_at).toLocaleString(),
+        updated_at: new Date(user.updated_at).toLocaleString()
+      };
+
+      worksheet.addRow(row);
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="users_${new Date().toISOString().split('T')[0]}.xlsx"`);
+
+    return res.send(buffer);
+
+  } catch (err) {
+    console.error("Export error:", err);
+    res.status(500).json({ message: "Error exporting users to Excel" });
   }
 };

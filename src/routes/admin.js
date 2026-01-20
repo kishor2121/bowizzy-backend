@@ -21,6 +21,12 @@ router.get(
   controller.getAllUsers
 );
 
+router.get(
+  "/admin/export-users",
+  auth,
+  controller.exportUsersToExcel
+);
+
 router.patch(
   "/admin/interviewers/:user_id/verify",
   auth,
