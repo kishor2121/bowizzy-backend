@@ -1,10 +1,14 @@
 // controllers/interviewSlotController.js
 const InterviewSlot = require("../models/interviewSlot");
+const UserPayment = require("../models/UserPayment");
+const UserCredits = require("../models/UserCredits");
 const dayjs = require('dayjs');
 const utc = require('dayjs/plugin/utc');
 const timezone = require('dayjs/plugin/timezone');
 dayjs.extend(utc);
 dayjs.extend(timezone);
+
+const CREDITS_PER_RUPEE = parseInt(process.env.CREDITS_PER_RUPEE, 10) || 2;
 
 // statuses considered blocking
 const ACTIVE_STATUSES = ['open', 'confirmed'];
@@ -233,8 +237,6 @@ exports.updatePaymentInfo = async (req, res) => {
   }
 };
 
-
-
 exports.getAll = async (req, res) => {
   try {
     const list = await InterviewSlot.query()
@@ -321,7 +323,6 @@ exports.cancel = async (req, res) => {
     if (status === "open") {
       let updated_slot;
       await knex.transaction(async (trx) => {
-        // Cancel in interview_slot
         updated_slot = await trx("interview_slots")
           .where({
             interview_slot_id: slot.interview_slot_id,
@@ -332,10 +333,39 @@ exports.cancel = async (req, res) => {
             updated_at: knex.raw("now()")
           });
 
-        // Remove all saved_slots entries for this slot
         await trx("saved_slots")
           .where({ interview_slot_id: slot.interview_slot_id })
           .del();
+
+        if (slot.is_payment_done) {
+          // Get payment record for THIS specific slot
+          const paymentRecord = await trx("user_payments")
+            .where({
+              interview_slot_id: slot.interview_slot_id,
+              user_id: user_id,
+              status: "success"
+            })
+            .first();
+
+          if (paymentRecord) {
+            const refundAmount = paymentRecord.amount * CREDITS_PER_RUPEE;
+            
+            let userCredits = await trx("user_credits")
+              .where("user_id", user_id)
+              .first();
+
+            if (userCredits) {
+              await trx("user_credits")
+                .where("user_id", user_id)
+                .increment("credits", refundAmount);
+            } else {
+              await trx("user_credits").insert({
+                user_id: user_id,
+                credits: refundAmount
+              });
+            }
+          }
+        }
       });
 
       return res.status(200).json({
@@ -369,6 +399,36 @@ exports.cancel = async (req, res) => {
             interview_status: "cancelled",
             updated_at: knex.raw("now()")
           });
+
+        if (slot.is_payment_done) {
+          // Get payment record for THIS specific slot
+          const paymentRecord = await trx("user_payments")
+            .where({
+              interview_slot_id: slot.interview_slot_id,
+              user_id: user_id,
+              status: "success"
+            })
+            .first();
+
+          if (paymentRecord) {
+            const refundAmount = paymentRecord.amount * CREDITS_PER_RUPEE;
+            
+            let userCredits = await trx("user_credits")
+              .where("user_id", user_id)
+              .first();
+
+            if (userCredits) {
+              await trx("user_credits")
+                .where("user_id", user_id)
+                .increment("credits", refundAmount);
+            } else {
+              await trx("user_credits").insert({
+                user_id: user_id,
+                credits: refundAmount
+              });
+            }
+          }
+        }
       });
 
       return res.status(200).json({ message: "Interview got cancelled successfully",

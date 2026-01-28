@@ -42,7 +42,7 @@ const UserSubscription = require("../models/UserSubscription");
 // CREATE ORDER
 exports.createOrder = async (req, res) => {
   try {
-    const { amount, plan_type } = req.body;
+    const { amount, plan_type, interview_slot_id } = req.body;
     const user_id = req.user.user_id;
 
     // validate rupees
@@ -66,7 +66,8 @@ exports.createOrder = async (req, res) => {
       amount: Number(amount),   // ₹100 stays 100
       currency: "INR",
       status: "created",
-      plan_type
+      plan_type,
+      interview_slot_id: interview_slot_id || null  // Link to interview slot
     });
 
     return res.json(order);

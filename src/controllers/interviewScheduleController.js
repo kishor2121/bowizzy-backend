@@ -378,11 +378,25 @@ exports.cancel = async (req, res) => {
     }
 
     const knex = InterviewSchedule.knex();
+    const CREDITS_PER_RUPEE = parseInt(process.env.CREDITS_PER_RUPEE, 10) || 2;
 
     let updatedSlot;
+    let refundInfo = null;
 
     // Transaction to update both schedule and slot atomically
     await knex.transaction(async (trx) => {
+      // Get the interview slot to find candidate_id and payment status
+      const slotRow = await trx("interview_slots")
+        .where({ interview_slot_id: schedule.interview_slot_id })
+        .first();
+
+      if (!slotRow) {
+        throw new Error("Interview slot not found");
+      }
+
+      const candidateId = slotRow.candidate_id;
+      const isPaymentDone = slotRow.is_payment_done;
+
       // Cancel the schedule
       const updatedSchedules = await trx("interview_schedules")
         .where({
@@ -414,10 +428,55 @@ exports.cancel = async (req, res) => {
       if (!updatedSlot) {
         throw new Error("Failed to update interview_slot");
       }
+
+      // Handle refund if candidate paid for this interview slot
+      if (isPaymentDone && candidateId) {
+        // Get payment record for THIS specific slot
+        const paymentRecord = await trx("user_payments")
+          .where({
+            interview_slot_id: schedule.interview_slot_id,
+            user_id: candidateId,
+            status: "success"
+          })
+          .first();
+
+        if (paymentRecord) {
+          const refundAmount = paymentRecord.amount * CREDITS_PER_RUPEE;
+
+          // Check if user has existing credits
+          let userCredits = await trx("user_credits")
+            .where("user_id", candidateId)
+            .first();
+
+          if (userCredits) {
+            // Increment existing credits
+            await trx("user_credits")
+              .where("user_id", candidateId)
+              .increment("credits", refundAmount);
+          } else {
+            // Create new credits entry
+            await trx("user_credits").insert({
+              user_id: candidateId,
+              credits: refundAmount
+            });
+          }
+
+          refundInfo = {
+            candidateId,
+            amount: paymentRecord.amount,
+            creditsRefunded: refundAmount
+          };
+        }
+      }
     });
 
-    return res.status(200).json({ message: "Interview schedule cancelled successfully", updatedSlot: updatedSlot });
+    return res.status(200).json({ 
+      message: "Interview schedule cancelled successfully", 
+      updatedSlot: updatedSlot,
+      refund: refundInfo
+    });
   } catch(err) {
+    console.error(err);
     return res.status(500).json({ message: "Error cancelling interview schedule" });
   }
 };
