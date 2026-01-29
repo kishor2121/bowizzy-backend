@@ -1,5 +1,6 @@
 // controllers/interviewSlotController.js
 const InterviewSlot = require("../models/interviewSlot");
+const UserCredits = require("../models/UserCredits");
 const dayjs = require('dayjs');
 const utc = require('dayjs/plugin/utc');
 const timezone = require('dayjs/plugin/timezone');
@@ -326,8 +327,32 @@ exports.cancel = async (req, res) => {
     const knex = InterviewSlot.knex();
     const status = String(slot.interview_status);
 
+    // Calculate refund based on cancellation timing and paid_amount
+    // Get the time difference between now and slot creation
+    const now = dayjs();
+    const createdAt = dayjs(slot.created_at);
+    const hoursDifference = now.diff(createdAt, 'hour', true);
+
+    // Determine refund percentage
+    let refundPercentage = 0;
+    if (hoursDifference <= 3) {
+      // Within 3 hours: Full refund (100%)
+      refundPercentage = 100;
+    } else {
+      // After 3 hours: Half refund (50%)
+      refundPercentage = 50;
+    }
+
+    // Calculate credits to refund from paid_amount
+    // Exchange rate: 1 RS = 2 credits
+    const paidAmount = slot.paid_amount || 0;
+    const creditsFromPayment = Math.floor(paidAmount * 2); // Convert rupees to credits
+    const creditsToRefund = Math.floor((creditsFromPayment * refundPercentage) / 100);
+
     if (status === "open") {
       let updated_slot;
+      let refundInfo = null;
+
       await knex.transaction(async (trx) => {
         // Cancel in interview_slot
         updated_slot = await trx("interview_slots")
@@ -340,6 +365,46 @@ exports.cancel = async (req, res) => {
             updated_at: knex.raw("now()")
           });
 
+        // Refund credits to user if amount was paid
+        if (creditsToRefund > 0) {
+          // Update user_credits balance
+          const userCredits = await trx('user_credits')
+            .where('user_id', user_id)
+            .first();
+
+          if (userCredits) {
+            // User already has credits, increment them
+            await trx('user_credits')
+              .where('user_id', user_id)
+              .increment('credits', creditsToRefund);
+          } else {
+            // Create new credit record for user
+            await trx('user_credits').insert({
+              user_id,
+              credits: creditsToRefund
+            });
+          }
+
+          // Create credit transaction history record
+          await trx('credit_transactions').insert({
+            user_id,
+            credits: creditsToRefund,
+            transaction_type: 'interview_slot_cancellation',
+            reference_id: slot.interview_slot_id,
+            description: `Credits refunded for cancelled interview slot (${refundPercentage}% refund) - ${slot.job_role}`,
+            created_at: knex.raw('now()'),
+            updated_at: knex.raw('now()')
+          });
+
+          refundInfo = {
+            paid_amount_rupees: paidAmount,
+            credits_from_payment: creditsFromPayment,
+            refund_percentage: refundPercentage,
+            credits_refunded: creditsToRefund,
+            hours_from_creation: Math.round(hoursDifference * 100) / 100
+          };
+        }
+
         // Remove all saved_slots entries for this slot
         await trx("saved_slots")
           .where({ interview_slot_id: slot.interview_slot_id })
@@ -348,13 +413,16 @@ exports.cancel = async (req, res) => {
 
       return res.status(200).json({
         message: "Interview got cancelled successfully",
-        updated_slot: updated_slot
+        updated_slot: updated_slot,
+        refund_info: refundInfo
       });
     }
 
     else if (status === "confirmed") {
       let updated_slot;
       let updated_schedule;
+      let refundInfo = null;
+
       await knex.transaction(async (trx) => {
         // Cancel in interview_slots
         updated_slot = await trx("interview_slots")
@@ -377,11 +445,54 @@ exports.cancel = async (req, res) => {
             interview_status: "cancelled",
             updated_at: knex.raw("now()")
           });
+
+        // Refund credits to user if amount was paid
+        if (creditsToRefund > 0) {
+          // Update user_credits balance
+          const userCredits = await trx('user_credits')
+            .where('user_id', user_id)
+            .first();
+
+          if (userCredits) {
+            // User already has credits, increment them
+            await trx('user_credits')
+              .where('user_id', user_id)
+              .increment('credits', creditsToRefund);
+          } else {
+            // Create new credit record for user
+            await trx('user_credits').insert({
+              user_id,
+              credits: creditsToRefund
+            });
+          }
+
+          // Create credit transaction history record
+          await trx('credit_transactions').insert({
+            user_id,
+            credits: creditsToRefund,
+            transaction_type: 'interview_slot_cancellation',
+            reference_id: slot.interview_slot_id,
+            description: `Credits refunded for cancelled confirmed interview (${refundPercentage}% refund) - ${slot.job_role}`,
+            created_at: knex.raw('now()'),
+            updated_at: knex.raw('now()')
+          });
+
+          refundInfo = {
+            paid_amount_rupees: paidAmount,
+            credits_from_payment: creditsFromPayment,
+            refund_percentage: refundPercentage,
+            credits_refunded: creditsToRefund,
+            hours_from_creation: Math.round(hoursDifference * 100) / 100
+          };
+        }
       });
 
-      return res.status(200).json({ message: "Interview got cancelled successfully",
+      return res.status(200).json({ 
+        message: "Interview got cancelled successfully",
         Updated_interview_slot: updated_slot, 
-        Updated_interview_schedule: updated_schedule });
+        Updated_interview_schedule: updated_schedule,
+        refund_info: refundInfo
+      });
     }
 
     else {
@@ -391,6 +502,7 @@ exports.cancel = async (req, res) => {
     }
 
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ message: "Error updating interview slot" });
   }
 };
