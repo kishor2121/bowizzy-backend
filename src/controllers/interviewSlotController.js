@@ -207,12 +207,20 @@ exports.updatePaymentInfo = async (req, res) => {
   try {
     const user_id = req.user.user_id;
     const { slot_id } = req.params;
+    const { paid_amount } = req.body;
+
+    if (!paid_amount) {
+      return res.status(400).json({ message: "paid_amount is required" });
+    }
+
+    const patchPayload = {
+      is_payment_done: true,
+      paid_amount: parseFloat(paid_amount),
+      updated_at: InterviewSlot.knex().raw("now()")
+    };
 
     const updated = await InterviewSlot.query()
-      .patch({
-        is_payment_done: true,
-        updated_at: InterviewSlot.knex().raw("now()")
-      })
+      .patch(patchPayload)
       .where({
         interview_slot_id: slot_id,
         candidate_id: user_id
