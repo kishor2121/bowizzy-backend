@@ -237,3 +237,39 @@ exports.authHandler = async (req, res) => {
     res.status(500).json({ message: "Authentication failed" });
   }
 };
+
+
+exports.checkCouponCode = async (req, res) => {
+  try {
+    const { coupon_code } = req.body;
+
+    if (!coupon_code) {
+      return res.status(400).json({
+        message: "Coupon code is required",
+        exists: false
+      });
+    }
+
+    const user = await User.query().findOne({ coupon_code });
+
+    if (user) {
+      return res.json({
+        message: "Coupon code exists",
+        exists: true,
+        coupon_code: coupon_code
+      });
+    } else {
+      return res.status(404).json({
+        message: "Coupon code does not exist",
+        exists: false,
+        coupon_code: coupon_code
+      });
+    }
+  } catch (err) {
+    console.error("Coupon Check Error:", err);
+    res.status(500).json({
+      message: "Failed to check coupon code",
+      exists: false
+    });
+  }
+};
