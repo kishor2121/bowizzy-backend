@@ -37,7 +37,7 @@ exports.authHandler = async (req, res) => {
         gender,
         date_of_birth,
         linkedin_url,
-        referral_coupon 
+        coupon_code 
       } = req.body;
 
       const requiredFields = [
@@ -85,26 +85,37 @@ exports.authHandler = async (req, res) => {
         coupon_code: myCouponCode
       });
 
-      await knex("user_credits").insert({
-        user_id: user.user_id,
-        credits: 0
-      });
-
-      if (referral_coupon) {
+      // Initialize credits - start with 20 if referral coupon, else 0
+      let initialCredits = 0;
+      if (coupon_code) {
+        const trimmedCoupon = coupon_code.trim().toUpperCase();
+        console.log("Looking for coupon:", trimmedCoupon);
+        
         const refUser = await User.query().findOne({
-          coupon_code: referral_coupon
+          coupon_code: trimmedCoupon
         });
 
-        if (refUser) {
-          await knex("user_credits")
-            .where({ user_id: refUser.user_id })
-            .increment("credits", 20);
+        console.log("Referral user found:", refUser ? refUser.user_id : "NOT FOUND");
 
-          await knex("user_credits")
-            .where({ user_id: user.user_id })
-            .increment("credits", 20);
+        if (refUser) {
+          try {
+            const incrementResult = await knex("user_credits")
+              .where({ user_id: refUser.user_id })
+              .increment("credits", 20);
+
+            console.log("Referrer credits incremented:", incrementResult);
+
+            initialCredits = 20;
+          } catch (err) {
+            console.error("Error incrementing referrer credits:", err);
+          }
         }
       }
+
+      await knex("user_credits").insert({
+        user_id: user.user_id,
+        credits: initialCredits
+      });
 
       await PersonalDetails.query().insert({
         user_id: user.user_id,
