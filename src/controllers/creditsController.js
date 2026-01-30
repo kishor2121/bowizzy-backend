@@ -1,4 +1,5 @@
 const UserCredits = require("../models/UserCredits");
+const User = require("../models/User");
 
 exports.getUserCredits = async (req, res) => {
   try {
@@ -12,7 +13,13 @@ exports.getUserCredits = async (req, res) => {
       return res.status(404).json({ message: "User credits not found" });
     }
 
-    return res.json(credits);
+    const user = await User.query().findById(user_id);
+
+    return res.json({
+      credits,
+      coupon_code: user ? user.coupon_code || null : null,
+      count: user ? (user.count ?? null) : null,
+    });
 
   } catch (err) {
     console.error(err);
