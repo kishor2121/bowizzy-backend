@@ -1,3 +1,62 @@
+const InterviewSchedule = require("../models/interviewSchedule");
+const PersonalDetails = require("../models/PersonalDetails");
+const Skill = require("../models/Skill");
+const Education = require("../models/Education");
+const WorkExperience = require("../models/WorkExperience");
+const Project = require("../models/Project");
+const Certificate = require("../models/Certificate");
+const Link = require("../models/Link");
+const SaveSlot = require("../models/saveSlot");
+const JobRole = require("../models/JobRole");
+const BankDetails = require("../models/bankDetails");
+const TechnicalSummary = require("../models/TechnicalSummary");
+const UserCredits = require("../models/UserCredits");
+const UserVerificationRequest = require("../models/userVerificationRequest");
+const ResumeTemplate = require("../models/ResumeTemplate");
+const CandidateReview = require("../models/candidateReview");
+const InterviewerReview = require("../models/interviewerReview");
+
+exports.deleteUserAndAssociations = async (req, res) => {
+  try {
+    const { user_id } = req.params;
+    const candidateSlots = await InterviewSlot.query().select('interview_slot_id').where('candidate_id', user_id);
+    const slotIds = candidateSlots.map(s => s.interview_slot_id);
+
+    if (slotIds.length > 0) {
+      await InterviewSchedule.query().delete().whereIn('interview_slot_id', slotIds);
+    }
+
+    await Promise.all([
+      PersonalDetails.query().delete().where("user_id", user_id),
+      Skill.query().delete().where("user_id", user_id),
+      Education.query().delete().where("user_id", user_id),
+      WorkExperience.query().delete().where("user_id", user_id),
+      Project.query().delete().where("user_id", user_id),
+      Certificate.query().delete().where("user_id", user_id),
+      Link.query().delete().where("user_id", user_id),
+      SaveSlot.query().delete().where("interviewer_id", user_id),
+      JobRole.query().delete().where("user_id", user_id),
+      BankDetails.query().delete().where("user_id", user_id),
+      TechnicalSummary.query().delete().where("user_id", user_id),
+      UserCredits.query().delete().where("user_id", user_id),
+      UserSubscription.query().delete().where("user_id", user_id),
+      UserPayment.query().delete().where("user_id", user_id),
+      UserVerificationRequest.query().delete().where("user_id", user_id),
+      ResumeTemplate.query().delete().where("user_id", user_id),
+      CandidateReview.query().delete().where("candidate_id", user_id),
+      InterviewerReview.query().delete().where("interviewer_id", user_id),
+      InterviewSlot.query().delete().where("candidate_id", user_id),
+    ]);
+    const deleted = await User.query().deleteById(user_id);
+    if (!deleted) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    return res.json({ message: "User and all related data deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error deleting user and associations" });
+  }
+};
 const User = require("../models/User");
 const UserSubscription = require("../models/UserSubscription");
 const InterviewSlot = require("../models/interviewSlot");
@@ -112,37 +171,6 @@ exports.getAllUsers = async (req, res) => {
     res.status(500).json({ message: "Error fetching interviewer requests" });
   }
 };
-
-// exports.updateUser = async (req, res) => {
-//   try {
-//     const { user_id } = req.params;
-//     const {
-//       name,
-//       email,
-//       user_type,
-//       is_interviewer_verified
-//     } = req.body;
-
-//     const updated = await User.query()
-//       .patch({
-//         name,
-//         email,
-//         user_type,
-//         is_interviewer_verified
-//       })
-//       .where({ user_id });
-
-//     if (updated === 0) {
-//       return res.status(404).json({ message: "User not found" });
-//     }
-
-//     return res.json({ message: "User updated successfully" });
-
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ message: "Error updating user" });
-//   }
-// };
 
 exports.updateUser = async (req, res) => {
   try {

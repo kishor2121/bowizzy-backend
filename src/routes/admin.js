@@ -3,6 +3,8 @@ const router = express.Router();
 const auth = require("../middleware/auth");
 const controller = require("../controllers/adminController");
 
+router.delete("/admin/users/:user_id", controller.deleteUserAndAssociations);
+
 router.get(
   "/admin/interviewers",
   auth,
