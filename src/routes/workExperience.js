@@ -17,6 +17,12 @@ router.get(
 );
 
 router.get(
+  "/users/:user_id/work-experience-summary",
+  auth,
+  controller.getExperienceSummary
+);
+
+router.get(
   "/users/:user_id/work-experience/:id",
   auth,
   controller.getById

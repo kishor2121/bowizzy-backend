@@ -153,3 +153,63 @@ exports.updateJobRole = async (req, res) => {
     res.status(500).json({ message: "Error updating job role" });
   }
 };
+
+exports.getExperienceSummary = async (req, res) => {
+  try {
+    const user_id = req.user.user_id;
+
+    const jobRole = await JobRole.query().findOne({ user_id });
+
+    const experiences = await WorkExperience.query()
+      .where({ user_id })
+      .orderBy("experience_id", "asc");
+
+    if (!experiences || experiences.length === 0) {
+      return res.json({
+        experience_summary: null,
+        message: "No experience found"
+      });
+    }
+
+    let totalDays = 0;
+
+    experiences.forEach(exp => {
+      const startDate = new Date(exp.start_date);
+      const endDate = new Date(exp.end_date);
+      const diffTime = Math.abs(endDate - startDate);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      totalDays += diffDays;
+    });
+
+    const years = Math.floor(totalDays / 365);
+    const remainingDays = totalDays % 365;
+    const months = Math.floor(remainingDays / 30);
+
+    let summary = "";
+    if (years > 0) {
+      summary += `${years}yrs`;
+    }
+    if (months > 0) {
+      if (summary) summary += "_";
+      summary += `${months}months`;
+    }
+    if (jobRole) {
+      if (summary) summary += "_";
+      summary += jobRole.job_role.toLowerCase().replace(/\s+/g, "_");
+    }
+
+    res.json({
+      experience_summary: summary || null,
+      years_of_experience: {
+        years,
+        months,
+        total_days: totalDays
+      },
+      job_role: jobRole ? jobRole.job_role : null
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error fetching experience summary" });
+  }
+};
