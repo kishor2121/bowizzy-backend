@@ -121,8 +121,23 @@ exports.create = async (req, res) => {
       }
 
       // ✅ CREATE ZOOM MEETING
-      const zoomLink = await createZoomMeeting({
-        startTimeUtc: slotRow.start_time_utc
+      // Get count of interviews at same time to distribute across accounts
+      const sameTimeCount = await trx("interview_schedules")
+        .where({
+          interview_status: "confirmed"
+        })
+        .whereRaw(
+          'start_time_utc = ?',
+          [slotRow.start_time_utc]
+        )
+        .count('*')
+        .first();
+
+      const meetingNumber = (sameTimeCount?.count || 0) + 1;
+
+      const zoomMeeting = await createZoomMeeting({
+        startTimeUtc: slotRow.start_time_utc,
+        meetingNumber: meetingNumber  // Distributes across configured accounts
       });
 
       // create schedule
@@ -135,8 +150,10 @@ exports.create = async (req, res) => {
           start_time_utc: slotRow.start_time_utc,
           end_time_utc: slotRow.end_time_utc,
           interview_mode: slotRow.interview_mode,
-          meeting_link: zoomLink,
+          meeting_link: zoomMeeting.join_url,
           meeting_type: "zoom",
+          zoom_meeting_id: zoomMeeting.zoom_meeting_id,
+          zoom_account_index: zoomMeeting.accountIndex,
           created_at: knex.raw("now()"),
           updated_at: knex.raw("now()")
         })
