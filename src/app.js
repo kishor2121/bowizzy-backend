@@ -14,7 +14,13 @@ app.use((req, res, next) => {
 });
 
 // Middlewares
-app.use(cors());
+  app.use(cors({
+    origin: [
+      "https://www.bowizzy.com",
+      "https://bowizzy.com"
+    ],
+    credentials: true
+  }));
 app.use(express.json());
 app.use(morgan("dev"));
 
